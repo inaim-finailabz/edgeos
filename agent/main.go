@@ -1,70 +1,103 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
-	"runtime"
-
-	"edgeos/internal/capability"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"syscall"
+	"time"
 )
 
 func main() {
 	addr := flag.String("addr", ":8090", "address to serve /v0/capabilities on")
+	modelPath := flag.String("model", "", "path to a .gguf model file; omit to run with no engine")
+	llamaServerBin := flag.String("llama-server-bin", "llama-server", "path to the llama-server binary")
+	engineHost := flag.String("engine-host", "127.0.0.1", "host llama-server listens on")
+	enginePort := flag.Int("engine-port", 8080, "port llama-server listens on")
+	ctxSize := flag.Int("ctx-size", 4096, "context size passed to llama-server (-c)")
+	accel := flag.String("accel", "", "override accelerator reported in capabilities (default: best-effort detection)")
+	stateDir := flag.String("state-dir", defaultStateDir(), "directory for persisted agent state (node id)")
+	enableMDNS := flag.Bool("mdns", true, "announce this agent via mDNS")
 	flag.Parse()
 
-	http.HandleFunc("/v0/capabilities", capabilitiesHandler)
+	nodeID, err := loadOrCreateNodeID(*stateDir)
+	if err != nil {
+		log.Fatalf("edgeos-agent: node id: %v", err)
+	}
 
-	log.Printf("edgeos-agent: serving /v0/capabilities on %s", *addr)
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	resolvedAccel := *accel
+	if resolvedAccel == "" {
+		resolvedAccel = detectAccel()
+	}
+
+	sup := NewSupervisor(SupervisorConfig{
+		LlamaServerBin: *llamaServerBin,
+		ModelPath:      *modelPath,
+		EngineHost:     *engineHost,
+		EnginePort:     *enginePort,
+		CtxSize:        *ctxSize,
+	})
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	go func() {
+		if err := sup.Run(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("edgeos-agent: supervisor: %v", err)
+		}
+	}()
+
+	if *enableMDNS {
+		mdnsServer, err := startMDNS(nodeID, capabilitiesPort(*addr, *enginePort), "/v0/capabilities")
+		if err != nil {
+			log.Printf("edgeos-agent: mDNS disabled: %v", err)
+		} else {
+			defer mdnsServer.Shutdown()
+		}
+	}
+
+	srv := &server{nodeID: nodeID, accel: resolvedAccel, engine: sup}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v0/capabilities", srv.capabilitiesHandler)
+	httpServer := &http.Server{Addr: *addr, Handler: mux}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		httpServer.Shutdown(shutdownCtx)
+	}()
+
+	log.Printf("edgeos-agent: id=%s serving /v0/capabilities on %s", nodeID, *addr)
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }
 
-// capabilitiesHandler returns fake-but-schema-shaped data so the router has
-// something to talk to before engine supervision and benchmarking exist.
-func capabilitiesHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	hostname, err := os.Hostname()
+func defaultStateDir() string {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		hostname = "unknown"
+		return ".edgeos"
 	}
+	return filepath.Join(home, ".edgeos")
+}
 
-	resp := capability.Response{
-		Schema: "edgeos/v0",
-		Node: capability.Node{
-			ID:         "a1b2c3d4",
-			Hostname:   hostname,
-			Platform:   runtime.GOOS + "/" + runtime.GOARCH,
-			Accel:      "cpu",
-			MemTotalMB: 7620,
-			MemFreeMB:  4100,
-		},
-		Engine: capability.Engine{
-			Kind:     "llama.cpp",
-			Endpoint: "http://localhost:8080",
-			Healthy:  true,
-		},
-		Models: []capability.Model{
-			{
-				ID:        "llama-3.1-8b-instruct-q4_k_m",
-				State:     "loaded",
-				CtxMax:    8192,
-				TokPerSec: 11.4,
-			},
-		},
-		Load: capability.Load{
-			ActiveRequests: 0,
-			QueueDepth:     0,
-		},
+// capabilitiesPort extracts the port number mDNS should advertise from an
+// "-addr" flag like ":8090" or "0.0.0.0:8090".
+func capabilitiesPort(addr string, fallback int) int {
+	_, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fallback
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Printf("encode capabilities response: %v", err)
+	p, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fallback
 	}
+	return p
 }
