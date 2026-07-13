@@ -199,14 +199,28 @@ svg { display: block; }
 .token-box .hint { color: var(--muted); font-size: 0.76rem; }
 
 .app-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   padding: 1rem 1.75rem;
   border-top: 1px solid var(--border);
-  color: var(--accent);
+  color: var(--text-secondary);
   font-size: 0.78rem;
+}
+.app-footer-brand {
+  color: var(--accent);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.app-footer-sep { color: var(--border); }
+.app-footer-links {
+  display: flex;
+  gap: 1.1rem;
+  margin-left: auto;
+}
+.app-footer-links a { color: var(--muted); text-decoration: none; }
+.app-footer-links a:hover { color: var(--accent); }
 
 main {
   padding: 1.75rem;
