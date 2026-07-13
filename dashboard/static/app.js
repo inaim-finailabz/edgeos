@@ -1,13 +1,26 @@
+const IS_PUBLIC = window.EDGEOS_PUBLIC === true;
+
 const TOKEN_KEY = "edgeos_token";
 const tokenInput = document.getElementById("token");
 const statusEl = document.getElementById("status");
 const tbody = document.getElementById("nodes-body");
 const addNodeForm = document.getElementById("add-node-form");
 
-tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
-tokenInput.addEventListener("input", () => {
-  localStorage.setItem(TOKEN_KEY, tokenInput.value);
-});
+if (IS_PUBLIC) {
+  // Read-only public instance: the server-side proxy already refuses any
+  // non-GET request, but there's no point showing controls that can't work.
+  // (.style.display, not the hidden attribute: .token-box/.add-node set
+  // their own `display` in CSS at equal specificity to the UA [hidden]
+  // rule, so the later author rule would otherwise win and the attribute
+  // would be silently ignored.)
+  document.querySelector(".token-box").style.display = "none";
+  document.querySelector(".add-node").style.display = "none";
+} else {
+  tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
+  tokenInput.addEventListener("input", () => {
+    localStorage.setItem(TOKEN_KEY, tokenInput.value);
+  });
+}
 
 function showStatus(message, isError) {
   statusEl.textContent = message;
@@ -73,11 +86,11 @@ function renderNodes(nodes) {
       <td>${escapeHTML(load.active_requests ?? "-")}</td>
       <td>${engine.healthy ? "yes" : "no"}</td>
       <td>${escapeHTML(lastSeen)}</td>
-      <td>
+      <td>${IS_PUBLIC ? "" : `
         <button onclick="doStop('${n.id}')">Stop</button>
         <button onclick="doReload('${n.id}')">Reload</button>
         <button class="danger" onclick="doRemove('${n.id}')">Remove</button>
-      </td>
+      `}</td>
     </tr>`;
   }).join("");
 }
