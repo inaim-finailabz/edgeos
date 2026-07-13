@@ -18,15 +18,25 @@
     see `docs/CAPABILITY_SCHEMA.md`)
   - multi-user auth with accounts/roles/SSO (v0's dashboard auth is one
     shared static token — fine for one operator, not a team)
+  - **per-person usage**: token/request KPIs and throttling *by individual
+    user*. This is not separable from multi-user auth above — v0 has no
+    concept of "a person" at all (one shared token), so per-person
+    anything is downstream of accounts existing, not a separate feature.
   - multi-site / multi-cluster fleet visibility (v0 is one router's view)
-  - audit logs and SLA-backed support
+  - audit logs (per-request logging, who-did-what) and SLA-backed support
+  - **custom/fine-tuned model deployment** — hosting and serving a
+    customer's own trained weights through EdgeOS Cloud. Distinct from the
+    others: those are ops/organizational features on top of the same
+    software, this is an actual hosting capability (storage, serving
+    infra for arbitrary uploaded weights) — closer to the cloud-fallback
+    bullet's shape than the auth/ops bullets, but its own line of work.
 
-  Note: several of these (real auth, multi-site orchestration) are
-  explicitly out of v0 scope per `CLAUDE.md`. That's fine for the OSS core —
-  it's exactly the set of things that becomes roadmap work for the SaaS
-  tier once there's enterprise demand pulling on it. The differentiator
-  shifted from "has a dashboard at all" to "supports a team/org, not just
-  one operator" once the free dashboard shipped.
+  Note: several of these (real auth, multi-site orchestration, per-person
+  anything) are explicitly out of v0 scope per `CLAUDE.md`. That's fine for
+  the OSS core — it's exactly the set of things that becomes roadmap work
+  for the SaaS tier once there's enterprise demand pulling on it. The
+  differentiator shifted from "has a dashboard at all" to "supports a
+  team/org, not just one operator" once the free dashboard shipped.
 
 ## Precedent: Ollama's cloud tier
 
