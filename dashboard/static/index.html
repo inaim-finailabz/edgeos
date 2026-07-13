@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EdgeOS Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>EdgeOS</h1>
+  <div class="token-box">
+    <label for="token">Management token</label>
+    <input id="token" type="password" placeholder="required for stop / reload / evict" autocomplete="off">
+  </div>
+</header>
+
+<main>
+  <div id="status" class="status" hidden></div>
+  <table id="nodes">
+    <thead>
+      <tr>
+        <th>Node</th>
+        <th>Host</th>
+        <th>Platform</th>
+        <th>Accel</th>
+        <th>Model</th>
+        <th>State</th>
+        <th>Tok/s</th>
+        <th>Active</th>
+        <th>Healthy</th>
+        <th>Last seen</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="nodes-body">
+      <tr><td colspan="11" class="empty">Loading…</td></tr>
+    </tbody>
+  </table>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
