@@ -159,6 +159,31 @@ func TestChatCompletionsHandler_StreamsSSEIncrementally(t *testing.T) {
 	}
 }
 
+func TestChatCompletionsHandler_DoesNotForwardEngineCORSHeaders(t *testing.T) {
+	engine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate an engine (like llama-server) that sets its own CORS
+		// header on the response -- this must not reach the client
+		// alongside withCORS's own, or browsers reject the whole response
+		// for having conflicting Access-Control-Allow-Origin values.
+		w.Header().Set("Access-Control-Allow-Origin", "")
+		json.NewEncoder(w).Encode(map[string]string{"ok": "local"})
+	}))
+	defer engine.Close()
+
+	table := tableWithNode("n1", engine.URL, capability.Model{ID: "llama-8b", State: "loaded", CtxMax: 8192, TokPerSec: 50})
+	proxy := NewProxy(table, "", "", &RequestStats{})
+
+	body := `{"model":"llama-8b","messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	withCORS(http.HandlerFunc(proxy.ChatCompletionsHandler)).ServeHTTP(rec, req)
+
+	got := rec.Header().Values("Access-Control-Allow-Origin")
+	if len(got) != 1 || got[0] != "*" {
+		t.Errorf("Access-Control-Allow-Origin = %v, want exactly [\"*\"]", got)
+	}
+}
+
 func TestChatCompletionsHandler_MethodNotAllowed(t *testing.T) {
 	proxy := NewProxy(NewNodeTable(3), "", "", &RequestStats{})
 	req := httptest.NewRequest(http.MethodGet, "/v1/chat/completions", nil)

@@ -110,6 +110,13 @@ func (p *Proxy) ChatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for k, vals := range resp.Header {
+		// The router — not the upstream engine — owns CORS policy for its
+		// own public-facing API (withCORS already set it); forwarding the
+		// engine's own Access-Control-* would duplicate/conflict with it
+		// and browsers reject the response outright when that happens.
+		if strings.HasPrefix(strings.ToLower(k), "access-control-") {
+			continue
+		}
 		for _, v := range vals {
 			w.Header().Add(k, v)
 		}

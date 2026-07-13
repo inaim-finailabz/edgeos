@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EdgeOS sample client — browser chat</title>
+<style>
+  :root {
+    --bg: #f9f9f7; --surface: #fcfcfb; --text: #0b0b0b; --muted: #898781;
+    --border: rgba(11,11,11,0.10); --accent: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d0d0d; --surface: #1a1a19; --text: #fff; --muted: #898781;
+             --border: rgba(255,255,255,0.10); --accent: #3987e5; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  .wrap { max-width: 40rem; margin: 0 auto; padding: 1.5rem; }
+  h1 { font-size: 1.1rem; }
+  .config { display: flex; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .config input, .config select {
+    flex: 1; min-width: 10rem; padding: 0.4rem 0.6rem; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  #log {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem; height: 24rem; overflow-y: auto; margin-bottom: 1rem;
+  }
+  .msg { margin-bottom: 0.85rem; white-space: pre-wrap; }
+  .msg .role { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; margin-bottom: 0.2rem; }
+  .msg.user .role { color: var(--accent); }
+  form { display: flex; gap: 0.6rem; }
+  #input { flex: 1; padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  button { padding: 0.6rem 1.1rem; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>EdgeOS sample client</h1>
+  <p class="hint">A plain browser client calling the router's OpenAI-compatible
+     <code>/v1/chat/completions</code> directly — no SDK, no build step, just
+     <code>fetch()</code>. This is what "OpenAI-compatible endpoint" means in practice.</p>
+
+  <div class="config">
+    <input id="router-url" value="http://localhost:8081" placeholder="Router URL">
+    <select id="model"><option value="">loading models…</option></select>
+  </div>
+
+  <div id="log"></div>
+
+  <form id="form">
+    <input id="input" placeholder="Say something…" autocomplete="off" required>
+    <button id="send" type="submit">Send</button>
+  </form>
+</div>
+
+<script>
+const routerUrlEl = document.getElementById("router-url");
+const modelEl = document.getElementById("model");
+const logEl = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+
+const messages = [];
+
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.innerHTML = `<div class="role">${role}</div><div class="content"></div>`;
+  div.querySelector(".content").textContent = text;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+  return div.querySelector(".content");
+}
+
+async function loadModels() {
+  try {
+    const res = await fetch(routerUrlEl.value.replace(/\/$/, "") + "/v0/nodes");
+    const data = await res.json();
+    const models = new Set();
+    for (const n of data.nodes || []) {
+      for (const m of (n.cap && n.cap.models) || []) {
+        if (m.state === "loaded") models.add(m.id);
+      }
+    }
+    modelEl.innerHTML = "";
+    if (models.size === 0) {
+      modelEl.innerHTML = '<option value="">no loaded models found</option>';
+      return;
+    }
+    for (const m of models) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      modelEl.appendChild(opt);
+    }
+  } catch (err) {
+    modelEl.innerHTML = `<option value="">could not reach router</option>`;
+  }
+}
+
+routerUrlEl.addEventListener("change", loadModels);
+loadModels();
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text || !modelEl.value) return;
+
+  addMessage("user", text);
+  messages.push({ role: "user", content: text });
+  input.value = "";
+  sendBtn.disabled = true;
+
+  const assistantEl = addMessage("assistant", "");
+  let assistantText = "";
+
+  try {
+    const res = await fetch(routerUrlEl.value.replace(/\/$/, "") + "/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelEl.value, messages, stream: true, max_tokens: 300 }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      assistantEl.textContent = "Error: " + (err.error ? err.error.message : res.status);
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n\n");
+      buf = lines.pop(); // last (possibly incomplete) chunk stays in buf
+      for (const line of lines) {
+        const dataLine = line.split("\n").find(l => l.startsWith("data: "));
+        if (!dataLine) continue;
+        const payload = dataLine.slice(6);
+        if (payload === "[DONE]") continue;
+        const chunk = JSON.parse(payload);
+        const delta = chunk.choices?.[0]?.delta || {};
+        // Reasoning models (like the one in this session's demo) stream
+        // their chain-of-thought via reasoning_content before/instead of
+        // content -- show both so the demo isn't just a blank bubble.
+        const piece = delta.content || delta.reasoning_content;
+        if (piece) {
+          assistantText += piece;
+          assistantEl.textContent = assistantText;
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+      }
+    }
+    messages.push({ role: "assistant", content: assistantText });
+  } catch (err) {
+    assistantEl.textContent = "Error: " + err.message;
+  } finally {
+    sendBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

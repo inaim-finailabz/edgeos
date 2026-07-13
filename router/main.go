@@ -36,7 +36,7 @@ func main() {
 	mux.HandleFunc("GET /v0/nodes/{id}", getNodeHandler(table))
 	mux.HandleFunc("DELETE /v0/nodes/{id}", deleteNodeHandler(table, *managementToken))
 	mux.HandleFunc("POST /v0/nodes/{id}/actions/{action}", managementActionsHandler(table, *managementToken))
-	httpServer := &http.Server{Addr: *addr, Handler: mux}
+	httpServer := &http.Server{Addr: *addr, Handler: withCORS(mux)}
 
 	if *managementToken == "" {
 		log.Printf("edgeos-router: no -management-token configured; node create/delete/actions disabled")
