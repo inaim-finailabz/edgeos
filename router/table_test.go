@@ -77,3 +77,31 @@ func TestNodeTable_Discovered_NoOpIfKnown(t *testing.T) {
 		t.Error("rediscovery should not reset an existing node's miss count")
 	}
 }
+
+func TestNodeTable_Get(t *testing.T) {
+	table := NewNodeTable(3)
+	table.Discovered("n1", "http://example.invalid/v0/capabilities")
+
+	if _, ok := table.Get("missing"); ok {
+		t.Error("Get(missing) should report not found")
+	}
+	n, ok := table.Get("n1")
+	if !ok || n.ID != "n1" {
+		t.Errorf("Get(n1) = (%+v, %v), want a node with ID n1", n, ok)
+	}
+}
+
+func TestNodeTable_Evict(t *testing.T) {
+	table := NewNodeTable(3)
+	table.Discovered("n1", "http://example.invalid/v0/capabilities")
+
+	if !table.Evict("n1") {
+		t.Error("Evict(n1) should report true when the node was present")
+	}
+	if _, ok := table.Get("n1"); ok {
+		t.Error("n1 should be gone after Evict")
+	}
+	if table.Evict("n1") {
+		t.Error("Evict(n1) again should report false")
+	}
+}

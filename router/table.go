@@ -62,6 +62,30 @@ func (t *NodeTable) Snapshot() []NodeState {
 	return out
 }
 
+// Get returns one node's state by id.
+func (t *NodeTable) Get(id string) (NodeState, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	n, ok := t.nodes[id]
+	if !ok {
+		return NodeState{}, false
+	}
+	return *n, true
+}
+
+// Evict removes a node immediately, bypassing the miss-threshold — used by
+// the dashboard's "evict now" management action. Reports whether the node
+// was present.
+func (t *NodeTable) Evict(id string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if _, ok := t.nodes[id]; !ok {
+		return false
+	}
+	delete(t.nodes, id)
+	return true
+}
+
 // PollAll fetches capabilities for every known node concurrently, updating
 // each on success and evicting any that hit MissThreshold consecutive misses.
 func (t *NodeTable) PollAll(ctx context.Context) {
