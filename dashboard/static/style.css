@@ -35,7 +35,85 @@ body {
   color: var(--text);
 }
 
-header {
+/* App shell: persistent dark sidebar (regardless of light/dark theme —
+   the deliberate "serious control-plane tool" look), light/dark-aware
+   content area. */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 15rem;
+  flex-shrink: 0;
+  background: #12131a;
+  color: #b6b7c3;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0.9rem;
+}
+
+.sidebar-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #ffffff;
+  padding: 0 0.5rem 1.25rem;
+}
+
+.sidebar-nav { flex: 1; }
+
+.nav-group { margin-bottom: 1.5rem; }
+
+.nav-group-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b6c78;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #b6b7c3;
+  font-size: 0.88rem;
+  cursor: pointer;
+  margin-bottom: 0.15rem;
+}
+.nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.nav-item.active {
+  background: rgba(58,135,229,0.18);
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.nav-item.locked {
+  color: #6b6c78;
+  cursor: pointer;
+}
+.nav-item.locked:hover { background: rgba(255,255,255,0.04); color: #9a9bab; }
+.nav-item .lock { font-size: 0.75rem; opacity: 0.8; }
+
+.sidebar-footer { padding: 0.5rem; }
+.tier-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  color: #b6b7c3;
+}
+
+.content { flex: 1; min-width: 0; }
+
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -43,11 +121,7 @@ header {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
-
-header h1 {
-  font-size: 1.25rem;
-  margin: 0;
-}
+.topbar h1 { font-size: 1.15rem; margin: 0; font-weight: 600; }
 
 .token-box {
   display: flex;
@@ -71,6 +145,32 @@ main {
   max-width: 100%;
   overflow-x: auto;
 }
+
+/* [hidden] here needs the higher-specificity attribute-selector form,
+   not just the bare .modal-backdrop rule below -- otherwise the two
+   rules tie on specificity and display:flex wins by cascade order,
+   silently ignoring the hidden attribute (same class of bug as the
+   dashboard's token-box/add-node hiding — see app.js's IS_PUBLIC block). */
+.modal-backdrop[hidden] { display: none; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  max-width: 24rem;
+}
+.modal h3 { margin: 0 0 0.6rem; font-size: 1.05rem; }
+.modal p { margin: 0 0 1rem; color: var(--text-secondary); font-size: 0.9rem; }
 
 .status {
   margin-bottom: 1rem;

@@ -147,5 +147,32 @@ addNodeForm.addEventListener("submit", (e) => {
   addNodeForm.reset();
 });
 
+// Sidebar nav: "Overview"/"Nodes" both show the one view v0 has (no
+// separate per-view content yet, just active-state feedback). Locked
+// "Enterprise" items are inert by design -- they open the upgrade modal
+// instead of doing anything, since those features don't exist in the OSS
+// core (see docs/BUSINESS_MODEL.md).
+const modal = document.getElementById("upgrade-modal");
+const modalTitle = document.getElementById("upgrade-modal-title");
+
+document.querySelectorAll(".nav-item").forEach(item => {
+  item.addEventListener("click", () => {
+    if (item.classList.contains("locked")) {
+      modalTitle.textContent = item.dataset.feature;
+      modal.hidden = false;
+      return;
+    }
+    document.querySelectorAll(".nav-item.active").forEach(a => a.classList.remove("active"));
+    item.classList.add("active");
+  });
+});
+
+document.getElementById("upgrade-modal-close").addEventListener("click", () => {
+  modal.hidden = true;
+});
+modal.addEventListener("click", (e) => {
+  if (e.target === modal) modal.hidden = true;
+});
+
 fetchNodes();
 setInterval(fetchNodes, 2000);
