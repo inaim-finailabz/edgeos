@@ -1,0 +1,5 @@
+.git
+dist
+*.gguf
+models
+.DS_Store

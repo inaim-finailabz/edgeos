@@ -115,6 +115,27 @@ dashboard itself holds no secret: it's a static page plus a reverse proxy
 to the router under `/api/`, so the token you enter is what the router and
 agents actually check.
 
+### Running the dashboard in Docker
+
+The dashboard is the one component that makes sense to containerize — it's
+a pure HTTP service with no hardware access to manage (unlike the agent,
+which needs to supervise a local `llama-server`). Build and run it from the
+repo root (the build needs the whole module, not just `dashboard/`):
+
+```sh
+docker build -f dashboard/Dockerfile -t edgeos-dashboard .
+docker run -d --name edgeos-dashboard -p 8092:8092 \
+  -e EDGEOS_ROUTER_ADDR=http://host.docker.internal:8081 \
+  --add-host=host.docker.internal:host-gateway \
+  edgeos-dashboard
+```
+
+`--add-host`/`host.docker.internal` is how the container reaches a router
+running on the host (Docker Desktop and OrbStack both support it on
+macOS/Windows; on Linux you may need the container on the host network, or
+point `EDGEOS_ROUTER_ADDR` at the host's real IP instead). If the router
+runs in its own container too, just use its container/service name instead.
+
 This is single-shared-token auth, not multi-user accounts — see
 [docs/BUSINESS_MODEL.md](BUSINESS_MODEL.md) for why that split is
 deliberate.

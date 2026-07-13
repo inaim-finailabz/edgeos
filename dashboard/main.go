@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 )
 
 //go:embed static
@@ -19,8 +20,12 @@ var staticFS embed.FS
 // agents behind it) are the actual source of truth for the management
 // token — see docs/CAPABILITY_SCHEMA.md.
 func main() {
+	defaultRouter := os.Getenv("EDGEOS_ROUTER_ADDR")
+	if defaultRouter == "" {
+		defaultRouter = "http://localhost:8081"
+	}
 	addr := flag.String("addr", ":8092", "address to serve the dashboard on")
-	routerAddr := flag.String("router", "http://localhost:8081", "router base URL")
+	routerAddr := flag.String("router", defaultRouter, "router base URL (default: $EDGEOS_ROUTER_ADDR)")
 	flag.Parse()
 
 	target, err := url.Parse(*routerAddr)
