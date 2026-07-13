@@ -2,6 +2,7 @@ const TOKEN_KEY = "edgeos_token";
 const tokenInput = document.getElementById("token");
 const statusEl = document.getElementById("status");
 const tbody = document.getElementById("nodes-body");
+const addNodeForm = document.getElementById("add-node-form");
 
 tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
 tokenInput.addEventListener("input", () => {
@@ -26,10 +27,22 @@ async function fetchNodes() {
     const res = await fetch("/api/v0/nodes");
     if (!res.ok) throw new Error("router returned " + res.status);
     const data = await res.json();
+    renderKPIs(data.summary || {});
     renderNodes(data.nodes || []);
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="11" class="empty">Could not reach router: ${escapeHTML(err.message)}</td></tr>`;
   }
+}
+
+function renderKPIs(s) {
+  document.getElementById("kpi-nodes").textContent = s.total_nodes ?? "–";
+  document.getElementById("kpi-healthy").textContent = s.healthy_nodes ?? "–";
+  document.getElementById("kpi-active").textContent = s.total_active_requests ?? "–";
+  document.getElementById("kpi-tokpersec").textContent = (s.total_tok_per_sec ?? 0).toFixed(1);
+  document.getElementById("kpi-models").textContent = s.distinct_models ?? "–";
+  document.getElementById("kpi-served").textContent =
+    `${s.requests_served_local ?? 0} / ${s.requests_served_cloud ?? 0}`;
+  document.getElementById("kpi-failed").textContent = s.requests_failed ?? 0;
 }
 
 function renderNodes(nodes) {
@@ -63,13 +76,13 @@ function renderNodes(nodes) {
       <td>
         <button onclick="doStop('${n.id}')">Stop</button>
         <button onclick="doReload('${n.id}')">Reload</button>
-        <button class="danger" onclick="doEvict('${n.id}')">Evict</button>
+        <button class="danger" onclick="doRemove('${n.id}')">Remove</button>
       </td>
     </tr>`;
   }).join("");
 }
 
-async function callManagementAPI(path, body) {
+async function callManagementAPI(method, path, body) {
   const token = tokenInput.value.trim();
   if (!token) {
     showStatus("Set a management token first.", true);
@@ -77,7 +90,7 @@ async function callManagementAPI(path, body) {
   }
   try {
     const res = await fetch(path, {
-      method: "POST",
+      method,
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + token,
@@ -96,19 +109,30 @@ async function callManagementAPI(path, body) {
 
 function doStop(id) {
   if (!confirm(`Stop the engine on node ${id}?`)) return;
-  callManagementAPI(`/api/v0/nodes/${id}/actions/stop`);
+  callManagementAPI("POST", `/api/v0/nodes/${id}/actions/stop`);
 }
 
 function doReload(id) {
   const modelPath = prompt("Path to the .gguf model to load:");
   if (!modelPath) return;
-  callManagementAPI(`/api/v0/nodes/${id}/actions/reload`, { model_path: modelPath });
+  callManagementAPI("POST", `/api/v0/nodes/${id}/actions/reload`, { model_path: modelPath });
 }
 
-function doEvict(id) {
-  if (!confirm(`Evict node ${id} from the router's table now?`)) return;
-  callManagementAPI(`/api/v0/nodes/${id}/evict`);
+function doRemove(id) {
+  if (!confirm(`Remove node ${id}? It won't reappear via mDNS until re-added.`)) return;
+  callManagementAPI("DELETE", `/api/v0/nodes/${id}`);
 }
+
+addNodeForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const host = document.getElementById("add-host").value.trim();
+  const portValue = document.getElementById("add-port").value.trim();
+  if (!host) return;
+  const body = { host };
+  if (portValue) body.port = parseInt(portValue, 10);
+  callManagementAPI("POST", "/api/v0/nodes", body);
+  addNodeForm.reset();
+});
 
 fetchNodes();
 setInterval(fetchNodes, 2000);

@@ -11,12 +11,33 @@
   <h1>EdgeOS</h1>
   <div class="token-box">
     <label for="token">Management token</label>
-    <input id="token" type="password" placeholder="required for stop / reload / evict" autocomplete="off">
+    <input id="token" type="password" placeholder="required for add / remove / stop / reload" autocomplete="off">
   </div>
 </header>
 
 <main>
   <div id="status" class="status" hidden></div>
+
+  <section id="kpis" class="kpis" aria-label="Fleet summary">
+    <div class="kpi"><span class="kpi-label">Nodes</span><span class="kpi-value" id="kpi-nodes">–</span></div>
+    <div class="kpi"><span class="kpi-label">Healthy</span><span class="kpi-value" id="kpi-healthy">–</span></div>
+    <div class="kpi"><span class="kpi-label">Active requests</span><span class="kpi-value" id="kpi-active">–</span></div>
+    <div class="kpi"><span class="kpi-label">Fleet tok/s</span><span class="kpi-value" id="kpi-tokpersec">–</span></div>
+    <div class="kpi"><span class="kpi-label">Models loaded</span><span class="kpi-value" id="kpi-models">–</span></div>
+    <div class="kpi"><span class="kpi-label">Served (local / cloud)</span><span class="kpi-value" id="kpi-served">–</span></div>
+    <div class="kpi"><span class="kpi-label">Failed</span><span class="kpi-value" id="kpi-failed">–</span></div>
+  </section>
+
+  <details class="add-node">
+    <summary>Add node by IP / DNS</summary>
+    <form id="add-node-form">
+      <label>Host <input id="add-host" type="text" placeholder="192.168.1.50 or pi5.local" required></label>
+      <label>Port <input id="add-port" type="number" placeholder="8090" min="1" max="65535"></label>
+      <button type="submit">Add</button>
+      <span class="hint">For nodes mDNS can't reach (different subnet, etc). Requires the management token above.</span>
+    </form>
+  </details>
+
   <table id="nodes">
     <thead>
       <tr>

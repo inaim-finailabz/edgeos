@@ -108,12 +108,25 @@ export EDGEOS_MANAGEMENT_TOKEN=change-me
 ```
 
 Open `http://localhost:8092`, paste `change-me` into the token field (kept
-in the browser's `localStorage`), and you get a live, auto-refreshing table
-of every node — model, state, tok/s, active requests, health — with Stop,
-Reload (prompts for a new model path), and Evict buttons per node. The
-dashboard itself holds no secret: it's a static page plus a reverse proxy
-to the router under `/api/`, so the token you enter is what the router and
-agents actually check.
+in the browser's `localStorage`), and you get:
+
+- a **KPI strip** — total/healthy nodes, active requests, fleet-wide tok/s
+  capacity, distinct models loaded, requests served (local/cloud) and
+  failed — all real numbers computed from the live node list plus the
+  router's own request counters, not estimates
+- an **Add node by IP/DNS** form, for a node mDNS can't reach (different
+  subnet, a cloud box) — `POST /v0/nodes` under the hood
+- a live, auto-refreshing table of every node — model, state, tok/s, active
+  requests, health — with **Stop**, **Reload** (prompts for a new model
+  path), and **Remove** per node. Remove is a real delete (`DELETE
+  /v0/nodes/{id}`): unlike a miss-threshold eviction, the node's id is
+  blacklisted so mDNS won't silently bring it back — add it again
+  (manually, by IP, or automatically once it's back in mDNS range and
+  re-added) to undo that.
+
+The dashboard itself holds no secret: it's a static page plus a reverse
+proxy to the router under `/api/`, so the token you enter is what the
+router and agents actually check.
 
 ### Running the dashboard in Docker
 
