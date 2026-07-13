@@ -46,6 +46,12 @@ started when the upstream connection drops, the router does **not** retry
 or restart it — the response just ends. This is the hard rule from
 `CLAUDE.md`: no silent stream restart.
 
-`GET /v0/nodes` — the router's live fleet view: `{"nodes": [...]}`, each
-entry the last-polled `/v0/capabilities` response plus `LastSeen` and
-`Misses`. Used by `edgeos nodes`; not part of the agent contract above.
+`GET /v0/nodes` — the router's live fleet view:
+
+```json
+{ "nodes": [ { "id": "a1b2c3d4", "cap_url": "http://192.168.1.42:8090/v0/capabilities",
+               "cap": { /* same shape as GET /v0/capabilities above */ },
+               "last_seen": "2026-07-13T10:03:06Z", "misses": 0 } ] }
+```
+
+Used by `edgeos nodes`; not part of the agent contract above.

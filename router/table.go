@@ -14,11 +14,11 @@ import (
 // NodeState is what the router knows about one agent: where to poll it,
 // its last-fetched capabilities, and how many consecutive polls it's missed.
 type NodeState struct {
-	ID       string
-	CapURL   string
-	Cap      capability.Response
-	LastSeen time.Time
-	Misses   int
+	ID       string              `json:"id"`
+	CapURL   string              `json:"cap_url"`
+	Cap      capability.Response `json:"cap"`
+	LastSeen time.Time           `json:"last_seen"`
+	Misses   int                 `json:"misses"`
 }
 
 // NodeTable is the router's live view of the fleet: discovered via mDNS,

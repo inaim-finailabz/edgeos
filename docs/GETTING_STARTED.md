@@ -1,73 +1,104 @@
 # Getting started (v0, pre-release)
 
-This walks through building and running the agent on a device today, and is
-explicit about what's wired up versus what's still a stub — v0 is under
-active development, tracked in the repo's commit history.
+The full v0 pipeline works today: an agent on your device supervises a real
+`llama-server`, announces itself via mDNS, and reports live measured
+capabilities; a router discovers agents, scores them, and proxies
+OpenAI-compatible chat completions (streaming and non-streaming) straight
+to the winning node's engine, with a typed-error failover path to a
+configured cloud endpoint when nothing local qualifies.
 
-## What works right now
+## What's not in v0
 
-- `agent` builds and serves `GET /v0/capabilities` per
-  [docs/CAPABILITY_SCHEMA.md](CAPABILITY_SCHEMA.md).
-- The response is schema-correct but **not yet live data**: `node.hostname`
-  and `node.platform` are read from the machine; `accel`, memory, the models
-  list, and `tok_per_sec` are hardcoded placeholders.
-
-## What's not wired up yet
-
-- mDNS announce/discovery (`_edgeos._tcp.local`).
-- Supervising a real `llama-server` process and reporting its actual state.
-- The load-time 50-token benchmark that measures real `tok_per_sec`.
-- `router` and `cli` are empty scaffolds — no request routing yet.
-
-If you're integrating a device today, you're validating the capability
-contract and build, not yet getting live routing — that's the honest state
-of things until the items above land.
+Per [CLAUDE.md](../CLAUDE.md), intentionally out of scope: registry sync
+(model catalog / fleet-wide sync — `edgeos pull` is a plain file download,
+not a registry), vector store, GPU scheduling, phone-as-node, auth. Also:
+no crash-auto-restart of a dead `llama-server` process (the agent reports
+`error` state and stops), and `queue_depth` is always `0` — llama-server has
+no native queue-depth metric to report.
 
 ## Prerequisites
 
 - Go 1.25+
-- (optional, for `benchmarks/run.sh`) a running
-  [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server` and `jq`
+- [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on
+  your `$PATH` (or pass `-llama-server-bin /path/to/it` — see agent flags
+  below)
+- a `.gguf` model file (`edgeos pull` can fetch one — see below)
+- `jq`, only for `benchmarks/run.sh`
 
 ## Build
 
 ```sh
-make build          # agent, router, cli for your local OS/arch -> dist/
-make cross           # all three for linux/arm64, linux/amd64, darwin/arm64
+make build    # agent, router, cli for your local OS/arch -> dist/
+make cross    # all three for linux/arm64, linux/amd64, darwin/arm64
 ```
 
 Cross-compiled binaries land in `dist/<os>-<arch>/<component>` — copy the
-one matching your device (Pi 5 -> `linux-arm64`, Jetson Orin Nano ->
-`linux-arm64`, Mac -> `darwin-arm64`, 4070 box -> `linux-amd64`).
+set matching your device (Pi 5 / Jetson Orin Nano -> `linux-arm64`, Mac ->
+`darwin-arm64`, 4070 box -> `linux-amd64`). Keep `agent`, `router`, and
+`cli` together in the same directory — `edgeos up` looks for `agent`
+alongside itself.
 
-## Run the agent
-
-```sh
-./dist/agent -addr :8090
-```
-
-Then from another terminal, or from another machine on the network:
+## Pull a model
 
 ```sh
-curl http://<device-ip>:8090/v0/capabilities
+./dist/darwin-arm64/cli pull Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf
+# or a direct URL:
+./dist/darwin-arm64/cli pull -out ./models/mymodel.gguf https://example.com/model.gguf
 ```
 
-You should get back JSON matching the shape in
-[docs/CAPABILITY_SCHEMA.md](CAPABILITY_SCHEMA.md). That response is what the
-router will eventually poll every 2s to build its live node table.
+Saves to `~/.edgeos/models/<filename>` by default.
 
-## Benchmark a real llama-server
+## Bring up a node
 
-Once you have `llama-server` running with a model loaded:
+```sh
+./dist/darwin-arm64/cli up -model ~/.edgeos/models/qwen2.5-3b-instruct-q4_k_m.gguf
+```
+
+This execs the sibling `agent` binary, which spawns `llama-server`, waits
+for it to become healthy, runs a real 50-token benchmark for `tok_per_sec`,
+and starts announcing via mDNS and serving `GET /v0/capabilities`
+(default `:8090`). Check it directly:
+
+```sh
+curl http://localhost:8090/v0/capabilities
+```
+
+## Bring up the router
+
+```sh
+./dist/darwin-arm64/router -addr :8081 -cloud-endpoint https://api.openai.com -cloud-api-key sk-...
+```
+
+`-cloud-endpoint`/`-cloud-api-key` are optional — omit them and requests
+with no qualifying local node get a typed `503` instead of a cloud
+fallback. The router rediscovers agents and polls their capabilities every
+`-poll-interval` (default 2s), evicting after `-miss-threshold` (default 3)
+consecutive misses.
+
+```sh
+./dist/darwin-arm64/cli nodes -router http://localhost:8081
+```
+
+## Send a chat completion
+
+```sh
+curl http://localhost:8081/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen2.5-3b-instruct-q4_k_m.gguf","messages":[{"role":"user","content":"hi"}],"stream":true}'
+```
+
+The router scores every node reporting that model as `loaded` with enough
+`ctx_max` for the request (a v0 heuristic token estimate — no tokenizer
+dependency), picks the highest `tok_per_sec` adjusted for
+`active_requests`, and proxies the response straight through.
+
+## Benchmark a llama-server directly
 
 ```sh
 ./benchmarks/run.sh -u http://localhost:8080 -n 50
 ```
 
-This extracts measured prompt-eval and generation tok/s from the server's
-own `timings` block — the same mechanism the agent's load-time benchmark
-will use once it supervises `llama-server` directly, per
-[CLAUDE.md](../CLAUDE.md).
+Same mechanism the agent's own load-time benchmark uses internally.
 
 ## Running the test suite
 
@@ -78,7 +109,5 @@ make check    # gofmt check, go vet, go test
 ## Questions / contributing
 
 v0 scope is intentionally narrow — see [CLAUDE.md](../CLAUDE.md) for what's
-explicitly out of scope (registry sync, vector store, GPU scheduling,
-phone-as-node, auth). Open an issue before building against anything not
-listed here; the schema doc and this guide will be updated as each piece
-lands.
+explicitly out of scope. Open an issue before building against anything not
+covered here or in [docs/CAPABILITY_SCHEMA.md](CAPABILITY_SCHEMA.md).
