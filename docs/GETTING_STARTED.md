@@ -94,6 +94,21 @@ The router scores every node reporting that model as `loaded` with enough
 dependency), picks the highest `tok_per_sec` adjusted for
 `active_requests`, and proxies the response straight through.
 
+## Sample clients
+
+`examples/` has two runnable clients pointed at the router:
+
+- `examples/python/chat.py` — the official OpenAI Python SDK, unmodified
+  except for `base_url` (`pip install openai`, then
+  `python3 examples/python/chat.py --model <id> "your prompt"`, or omit
+  the prompt for an interactive loop). This is the actual proof of
+  "OpenAI-compatible endpoint" — no EdgeOS-specific code at all.
+- `examples/web/chat.html` — a plain browser client, `fetch()` + manual SSE
+  parsing, no SDK, no build step. Open it directly (or serve it,
+  `python3 -m http.server` from `examples/web/`), point it at your router,
+  and it auto-populates the model dropdown from `GET /v0/nodes`. Requires
+  the router's CORS support (on by default).
+
 ## Manage the fleet with the dashboard
 
 Stop/reload/evict are authenticated — set the same `-management-token` (or
