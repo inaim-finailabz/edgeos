@@ -68,6 +68,28 @@ already serves, the moment their own hardware isn't enough. Two different
 upgrade paths, both consistent with "the free and paid tiers are the same
 software."
 
+## What the Apache-2.0 grant actually covers
+
+Worth being explicit about, since the dashboard shows locked "Enterprise"
+items (Multi-user & SSO, Audit logs, Multi-site view, Usage & billing,
+Custom models, Priority support): **none of those have any implementation
+anywhere in this repository, gated or otherwise.** They are UI-only
+previews of a roadmap for a separate, not-yet-built hosted product
+(EdgeOS Cloud). There is no license check, no feature flag, no dormant
+code path to find or remove — clicking one just opens a modal explaining
+it's part of a different product. The Apache-2.0 grant on this repo covers
+exactly what's implemented here (agent, router, CLI, dashboard including
+that upgrade-modal UI), full stop.
+
+This matters for two reasons: (1) it's honest — nobody should go looking
+for enterprise functionality "hidden" in the OSS code, because it isn't
+there; and (2) it's the only design that's actually robust. A real
+license-gated feature *inside* Apache-2.0 code would be pointless (anyone
+can read the check and delete it — see the earlier node-cap discussion)
+and would muddy what the license grants. Keeping enterprise functionality
+entirely out of this repo, in a separate product, sidesteps both problems:
+there's nothing to break because there's nothing here to break.
+
 ## Why hybrid over the alternatives
 
 This supersedes three narrower options that were on the table (open-core +

@@ -7,33 +7,109 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- Icon sprite sheet: simple geometric line icons, no external library. -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="icon-grid" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <rect x="2.5" y="2.5" width="6" height="6" rx="1.2"/><rect x="11.5" y="2.5" width="6" height="6" rx="1.2"/>
+    <rect x="2.5" y="11.5" width="6" height="6" rx="1.2"/><rect x="11.5" y="11.5" width="6" height="6" rx="1.2"/>
+  </symbol>
+  <symbol id="icon-server" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <rect x="2.5" y="3" width="15" height="5.5" rx="1.3"/><rect x="2.5" y="11.5" width="15" height="5.5" rx="1.3"/>
+    <circle cx="6" cy="5.75" r="0.9" fill="currentColor" stroke="none"/><circle cx="6" cy="14.25" r="0.9" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-chat" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <path d="M3 4.5h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8l-4 3.2V14.5H3a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/>
+  </symbol>
+  <symbol id="icon-heart" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <path d="M10 17s-6.5-4-8-8.5C1 5 3 3 5.5 3c1.6 0 2.9.9 3.5 2 .6-1.1 1.9-2 3.5-2C15 3 17 5 18 8.5 16.5 13 10 17 10 17z"/>
+  </symbol>
+  <symbol id="icon-bolt" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M11 2 4 11.5h5L9 18l7-9.5h-5L11 2z"/>
+  </symbol>
+  <symbol id="icon-cpu" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <rect x="5.5" y="5.5" width="9" height="9" rx="1.2"/><rect x="8.5" y="1.8" width="3" height="2.4"/><rect x="8.5" y="15.8" width="3" height="2.4"/>
+    <rect x="1.8" y="8.5" width="2.4" height="3"/><rect x="15.8" y="8.5" width="2.4" height="3"/>
+  </symbol>
+  <symbol id="icon-cloud" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <path d="M6 15h9a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 6.1 8.2 3.5 3.5 0 0 0 6 15z"/>
+  </symbol>
+  <symbol id="icon-x" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <path d="M5 5l10 10M15 5L5 15"/>
+  </symbol>
+  <symbol id="icon-lock" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="4.5" y="9" width="11" height="8" rx="1.3"/><path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9"/>
+  </symbol>
+  <symbol id="icon-users" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <circle cx="7" cy="6.5" r="2.5"/><path d="M2 17c0-3 2.2-5 5-5s5 2 5 5"/>
+    <circle cx="14.5" cy="7.5" r="2"/><path d="M12.8 12.2c2.2.3 3.7 2.1 3.7 4.8"/>
+  </symbol>
+  <symbol id="icon-clipboard" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <rect x="4" y="3.5" width="12" height="14" rx="1.3"/><rect x="7" y="2" width="6" height="3" rx="1"/>
+    <path d="M7 9h6M7 12h6M7 15h3.5"/>
+  </symbol>
+  <symbol id="icon-globe" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.4 2 3.8 4.8 3.8 7.5s-1.4 5.5-3.8 7.5c-2.4-2-3.8-4.8-3.8-7.5S7.6 4.5 10 2.5z"/>
+  </symbol>
+  <symbol id="icon-card" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <rect x="2.5" y="4.5" width="15" height="11" rx="1.5"/><path d="M2.5 8h15"/><path d="M5.5 12h3"/>
+  </symbol>
+  <symbol id="icon-headset" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <path d="M4 11v-1a6 6 0 0 1 12 0v1"/><rect x="2.5" y="10.5" width="3.5" height="5" rx="1.2"/>
+    <rect x="14" y="10.5" width="3.5" height="5" rx="1.2"/><path d="M17.5 15.5v.5a3 3 0 0 1-3 3h-2.3"/>
+  </symbol>
+  <symbol id="icon-send" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M17.5 2.5 2 9l6 2.5M17.5 2.5 11 18l-3-6.5M17.5 2.5 8 11.5"/>
+  </symbol>
+  <symbol id="icon-gear" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
+    <circle cx="10" cy="10" r="2.8"/>
+    <path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4M15.1 15.1l-1.4-1.4M6.3 6.3 4.9 4.9"/>
+  </symbol>
+</svg>
+
 <div class="app-shell">
   <aside class="sidebar">
-    <div class="sidebar-brand">EdgeOS</div>
+    <div class="sidebar-brand">
+      <span class="brand-mark">E</span>
+      <span>EdgeOS</span>
+    </div>
     <nav class="sidebar-nav">
       <div class="nav-group">
-        <button class="nav-item active" data-view="overview">Overview</button>
-        <button class="nav-item" data-view="overview">Nodes</button>
+        <button class="nav-item active" data-view="overview">
+          <svg class="nav-icon"><use href="#icon-grid"/></svg>Overview
+        </button>
+        <button class="nav-item" data-view="overview">
+          <svg class="nav-icon"><use href="#icon-server"/></svg>Nodes
+        </button>
+        <button class="nav-item" data-view="chat">
+          <svg class="nav-icon"><use href="#icon-chat"/></svg>Chat
+        </button>
       </div>
       <div class="nav-group">
         <div class="nav-group-label">Enterprise</div>
         <button class="nav-item locked" data-feature="Multi-user access &amp; SSO">
-          Multi-user &amp; SSO <span class="lock" aria-hidden="true">&#128274;</span>
+          <svg class="nav-icon"><use href="#icon-users"/></svg>Multi-user &amp; SSO
+          <svg class="nav-lock"><use href="#icon-lock"/></svg>
         </button>
         <button class="nav-item locked" data-feature="Audit logs">
-          Audit logs <span class="lock" aria-hidden="true">&#128274;</span>
+          <svg class="nav-icon"><use href="#icon-clipboard"/></svg>Audit logs
+          <svg class="nav-lock"><use href="#icon-lock"/></svg>
         </button>
         <button class="nav-item locked" data-feature="Multi-site fleet view">
-          Multi-site view <span class="lock" aria-hidden="true">&#128274;</span>
+          <svg class="nav-icon"><use href="#icon-globe"/></svg>Multi-site view
+          <svg class="nav-lock"><use href="#icon-lock"/></svg>
         </button>
         <button class="nav-item locked" data-feature="Per-person usage &amp; throttling">
-          Usage &amp; billing <span class="lock" aria-hidden="true">&#128274;</span>
+          <svg class="nav-icon"><use href="#icon-card"/></svg>Usage &amp; billing
+          <svg class="nav-lock"><use href="#icon-lock"/></svg>
         </button>
         <button class="nav-item locked" data-feature="Custom model deployment">
-          Custom models <span class="lock" aria-hidden="true">&#128274;</span>
+          <svg class="nav-icon"><use href="#icon-cpu"/></svg>Custom models
+          <svg class="nav-lock"><use href="#icon-lock"/></svg>
         </button>
         <button class="nav-item locked" data-feature="Priority support &amp; SLA">
-          Priority support <span class="lock" aria-hidden="true">&#128274;</span>
+          <svg class="nav-icon"><use href="#icon-headset"/></svg>Priority support
+          <svg class="nav-lock"><use href="#icon-lock"/></svg>
         </button>
       </div>
     </nav>
@@ -44,57 +120,83 @@
 
   <div class="content">
     <header class="topbar">
-      <h1>Fleet overview</h1>
-      <div class="token-box">
-        <label for="token">Management token</label>
-        <input id="token" type="password" placeholder="required for add / remove / stop / reload" autocomplete="off">
+      <h1 id="view-title">Fleet overview</h1>
+      <div class="settings-menu">
+        <button id="settings-btn" class="icon-btn" aria-label="Settings" title="Settings">
+          <svg class="btn-icon-lg"><use href="#icon-gear"/></svg>
+        </button>
+        <div id="settings-popover" class="popover" hidden>
+          <div class="token-box">
+            <label for="token">Management token</label>
+            <input id="token" type="password" placeholder="required for add / remove / stop / reload" autocomplete="off">
+            <span class="hint">Needed to add/remove nodes or stop/reload an engine. Stored only in this browser.</span>
+          </div>
+        </div>
       </div>
     </header>
 
     <main>
       <div id="status" class="status" hidden></div>
 
-      <section id="kpis" class="kpis" aria-label="Fleet summary">
-        <div class="kpi"><span class="kpi-label">Nodes</span><span class="kpi-value" id="kpi-nodes">–</span></div>
-        <div class="kpi"><span class="kpi-label">Healthy</span><span class="kpi-value" id="kpi-healthy">–</span></div>
-        <div class="kpi"><span class="kpi-label">Active requests</span><span class="kpi-value" id="kpi-active">–</span></div>
-        <div class="kpi"><span class="kpi-label">Fleet tok/s</span><span class="kpi-value" id="kpi-tokpersec">–</span></div>
-        <div class="kpi"><span class="kpi-label">Models loaded</span><span class="kpi-value" id="kpi-models">–</span></div>
-        <div class="kpi"><span class="kpi-label">Served (local / cloud)</span><span class="kpi-value" id="kpi-served">–</span></div>
-        <div class="kpi"><span class="kpi-label">Failed</span><span class="kpi-value" id="kpi-failed">–</span></div>
+      <section id="view-overview" class="view">
+        <section id="kpis" class="kpis" aria-label="Fleet summary">
+          <div class="kpi"><span class="kpi-icon kpi-icon-blue"><svg><use href="#icon-server"/></svg></span><span class="kpi-text"><span class="kpi-label">Nodes</span><span class="kpi-value" id="kpi-nodes">–</span></span></div>
+          <div class="kpi"><span class="kpi-icon kpi-icon-green"><svg><use href="#icon-heart"/></svg></span><span class="kpi-text"><span class="kpi-label">Healthy</span><span class="kpi-value" id="kpi-healthy">–</span></span></div>
+          <div class="kpi"><span class="kpi-icon kpi-icon-orange"><svg><use href="#icon-bolt"/></svg></span><span class="kpi-text"><span class="kpi-label">Active requests</span><span class="kpi-value" id="kpi-active">–</span></span></div>
+          <div class="kpi"><span class="kpi-icon kpi-icon-violet"><svg><use href="#icon-cpu"/></svg></span><span class="kpi-text"><span class="kpi-label">Fleet tok/s</span><span class="kpi-value" id="kpi-tokpersec">–</span></span></div>
+          <div class="kpi"><span class="kpi-icon kpi-icon-aqua"><svg><use href="#icon-grid"/></svg></span><span class="kpi-text"><span class="kpi-label">Models loaded</span><span class="kpi-value" id="kpi-models">–</span></span></div>
+          <div class="kpi"><span class="kpi-icon kpi-icon-blue"><svg><use href="#icon-cloud"/></svg></span><span class="kpi-text"><span class="kpi-label">Served (local / cloud)</span><span class="kpi-value" id="kpi-served">–</span></span></div>
+          <div class="kpi"><span class="kpi-icon kpi-icon-red"><svg><use href="#icon-x"/></svg></span><span class="kpi-text"><span class="kpi-label">Failed</span><span class="kpi-value" id="kpi-failed">–</span></span></div>
+        </section>
+
+        <details class="add-node">
+          <summary>Add node by IP / DNS</summary>
+          <form id="add-node-form">
+            <label>Host <input id="add-host" type="text" placeholder="192.168.1.50 or pi5.local" required></label>
+            <label>Port <input id="add-port" type="number" placeholder="8090" min="1" max="65535"></label>
+            <button type="submit">Add</button>
+            <span class="hint">For nodes mDNS can't reach (different subnet, etc). Requires the management token above.</span>
+          </form>
+        </details>
+
+        <table id="nodes">
+          <thead>
+            <tr>
+              <th>Node</th>
+              <th>Host</th>
+              <th>Platform</th>
+              <th>Accel</th>
+              <th>Model</th>
+              <th>State</th>
+              <th>Tok/s</th>
+              <th>Active</th>
+              <th>Healthy</th>
+              <th>Last seen</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="nodes-body">
+            <tr><td colspan="11" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
       </section>
 
-      <details class="add-node">
-        <summary>Add node by IP / DNS</summary>
-        <form id="add-node-form">
-          <label>Host <input id="add-host" type="text" placeholder="192.168.1.50 or pi5.local" required></label>
-          <label>Port <input id="add-port" type="number" placeholder="8090" min="1" max="65535"></label>
-          <button type="submit">Add</button>
-          <span class="hint">For nodes mDNS can't reach (different subnet, etc). Requires the management token above.</span>
-        </form>
-      </details>
-
-      <table id="nodes">
-        <thead>
-          <tr>
-            <th>Node</th>
-            <th>Host</th>
-            <th>Platform</th>
-            <th>Accel</th>
-            <th>Model</th>
-            <th>State</th>
-            <th>Tok/s</th>
-            <th>Active</th>
-            <th>Healthy</th>
-            <th>Last seen</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="nodes-body">
-          <tr><td colspan="11" class="empty">Loading…</td></tr>
-        </tbody>
-      </table>
+      <section id="view-chat" class="view" hidden>
+        <div class="chat-panel">
+          <div class="chat-config">
+            <label>Model <select id="chat-model"><option value="">loading…</option></select></label>
+            <span class="hint">Chats directly with your fleet through the router — real inference, not a demo.</span>
+          </div>
+          <div id="chat-log" class="chat-log"></div>
+          <form id="chat-form" class="chat-form">
+            <input id="chat-input" placeholder="Ask your fleet something…" autocomplete="off" required>
+            <button type="submit"><svg class="btn-icon"><use href="#icon-send"/></svg>Send</button>
+          </form>
+        </div>
+      </section>
     </main>
+
+    <footer class="app-footer">AI Labz</footer>
   </div>
 </div>
 
