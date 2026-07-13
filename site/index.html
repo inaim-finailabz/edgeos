@@ -118,6 +118,25 @@
   </div>
 </section>
 
+<section id="connect" class="connect">
+  <div class="wrap">
+    <h2>Connect from any language</h2>
+    <p class="connect-intro">It's an OpenAI-compatible endpoint — point whatever
+       you already use at the router. No EdgeOS-specific SDK.</p>
+
+    <div class="lang-tabs" id="lang-tabs" role="tablist" aria-label="Choose a language">
+      <button role="tab" aria-selected="true" data-lang="python">Python</button>
+      <button role="tab" aria-selected="false" data-lang="node">Node.js</button>
+      <button role="tab" aria-selected="false" data-lang="go">Go</button>
+      <button role="tab" aria-selected="false" data-lang="browser">Browser</button>
+      <button role="tab" aria-selected="false" data-lang="curl">cURL</button>
+    </div>
+
+    <pre class="code-panel"><code id="lang-code"></code></pre>
+    <p class="connect-hint">Full runnable examples: <code>examples/&lt;language&gt;/</code> in the repo.</p>
+  </div>
+</section>
+
 <section id="demo" class="demo">
   <div class="wrap">
     <h2>See it running</h2>

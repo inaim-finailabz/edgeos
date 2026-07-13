@@ -1,3 +1,73 @@
+// Language picker: same snippets as examples/, condensed for display.
+(function initLangTabs() {
+  const tabs = document.getElementById("lang-tabs");
+  if (!tabs) return; // section only exists on the main page
+  const codeEl = document.getElementById("lang-code");
+
+  const snippets = {
+    python: `from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8081/v1", api_key="unused-in-v0")
+
+stream = client.chat.completions.create(
+    model="<id from GET /v0/nodes>",
+    messages=[{"role": "user", "content": "hi"}],
+    stream=True,
+)
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="")`,
+
+    node: `import OpenAI from "openai";
+
+const client = new OpenAI({ baseURL: "http://localhost:8081/v1", apiKey: "unused-in-v0" });
+
+const stream = await client.chat.completions.create({
+  model: "<id from GET /v0/nodes>",
+  messages: [{ role: "user", content: "hi" }],
+  stream: true,
+});
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0].delta.content || "");
+}`,
+
+    go: `resp, _ := http.Post(
+    "http://localhost:8081/v1/chat/completions",
+    "application/json",
+    strings.NewReader(\`{"model":"<id>","messages":[{"role":"user","content":"hi"}],"stream":true}\`),
+)
+defer resp.Body.Close()
+// read resp.Body as SSE: lines prefixed "data: ", terminated by "data: [DONE]"`,
+
+    browser: `const res = await fetch("http://localhost:8081/v1/chat/completions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    model: "<id from GET /v0/nodes>",
+    messages: [{ role: "user", content: "hi" }],
+    stream: true,
+  }),
+});
+const reader = res.body.getReader();
+// decode chunks, split on "\\n\\n", parse each "data: {...}" line`,
+
+    curl: `curl -N http://localhost:8081/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"<id from GET /v0/nodes>","messages":[{"role":"user","content":"hi"}],"stream":true}'`,
+  };
+
+  function select(lang) {
+    codeEl.textContent = snippets[lang];
+    [...tabs.children].forEach(btn => btn.setAttribute("aria-selected", String(btn.dataset.lang === lang)));
+  }
+
+  tabs.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-lang]");
+    if (btn) select(btn.dataset.lang);
+  });
+
+  select("python");
+})();
+
 // Carousel: plain vanilla, auto-advance + dot navigation.
 (function initCarousel() {
   const track = document.getElementById("carousel-track");

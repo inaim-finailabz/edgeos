@@ -204,6 +204,44 @@ section h2 { font-size: 1.6rem; margin: 0 0 1.5rem; }
 .steps li { margin-bottom: 0.75rem; }
 .steps strong { color: var(--text); }
 
+.connect-intro { color: var(--text-secondary); max-width: 34rem; }
+.lang-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin: 1.25rem 0 0;
+  flex-wrap: wrap;
+}
+.lang-tabs button {
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  background: var(--page);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lang-tabs button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  border-bottom: 1px solid var(--surface);
+  margin-bottom: -1px;
+  position: relative;
+}
+.code-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0 10px 10px 10px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 0;
+}
+.code-panel code { white-space: pre; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.connect-hint { color: var(--muted); font-size: 0.82rem; margin-top: 0.75rem; }
+
 .demo-intro { color: var(--text-secondary); max-width: 34rem; }
 .demo-panel {
   margin-top: 1.5rem;
