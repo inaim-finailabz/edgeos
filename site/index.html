@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EdgeOS — One API for AI inference across every device you own</title>
+<meta name="description" content="EdgeOS is an open orchestration layer for edge AI: discovery, routing, and failover across your own devices, with cloud as just another tier.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <span class="logo">EdgeOS</span>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#demo">Live demo</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <h1>One API for AI inference across every device you own.</h1>
+      <p>Install a small agent on each device — Raspberry Pi, Jetson, Mac, PC —
+         and they become a single OpenAI-compatible endpoint. EdgeOS routes
+         each request to the best available node and falls back to cloud
+         only when nothing local qualifies.</p>
+      <div class="hero-ctas">
+        <a href="#demo" class="btn btn-primary">See it running</a>
+        <a href="#how-it-works" class="btn btn-secondary">How it works</a>
+      </div>
+      <p class="hero-status">Status: pre-release. Apache-2.0.</p>
+    </div>
+
+    <div class="carousel" id="carousel" aria-label="EdgeOS overview">
+      <div class="carousel-track" id="carousel-track">
+        <figure class="carousel-slide">
+          <div class="diagram" aria-hidden="true">
+            <div class="diagram-node">Pi 5</div>
+            <div class="diagram-node">Jetson</div>
+            <div class="diagram-node">Mac</div>
+            <div class="diagram-arrow">→</div>
+            <div class="diagram-node diagram-node-router">Router</div>
+            <div class="diagram-arrow">→</div>
+            <div class="diagram-node diagram-node-cloud">Cloud (fallback only)</div>
+          </div>
+          <figcaption>Discovery + scoring + failover across heterogeneous devices.</figcaption>
+        </figure>
+        <figure class="carousel-slide">
+          <img src="assets/dashboard-screenshot.png" alt="EdgeOS dashboard showing live nodes, tok/s, and health">
+          <figcaption>Live fleet visibility — nodes, tok/s, health, at a glance.</figcaption>
+        </figure>
+        <figure class="carousel-slide">
+          <div class="diagram diagram-stack" aria-hidden="true">
+            <div class="diagram-row"><span class="diagram-pill">agent</span><span>mDNS + measured tok/s, never in the token path</span></div>
+            <div class="diagram-row"><span class="diagram-pill">router</span><span>OpenAI-compatible, scores nodes, typed failover</span></div>
+            <div class="diagram-row"><span class="diagram-pill">cli</span><span>edgeos up / nodes / pull</span></div>
+            <div class="diagram-row"><span class="diagram-pill">dashboard</span><span>fleet view + management, free &amp; open</span></div>
+          </div>
+          <figcaption>Four small, focused components. No inference code of our own — the engine is llama.cpp.</figcaption>
+        </figure>
+      </div>
+      <div class="carousel-dots" id="carousel-dots"></div>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="features">
+  <div class="wrap">
+    <h2>Why EdgeOS</h2>
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>Discovery, not configuration</h3>
+        <p>Agents announce themselves over mDNS the moment they start. The
+           router finds them, polls their real capabilities every 2 seconds,
+           and evicts anything that goes quiet — no static node lists to
+           maintain.</p>
+      </div>
+      <div class="feature">
+        <h3>Measured, not estimated</h3>
+        <p>Every node benchmarks itself with a real 50-token generation at
+           load time. Routing decisions are based on actual tok/s and actual
+           in-flight load, not guesses.</p>
+      </div>
+      <div class="feature">
+        <h3>Cloud as a fallback, not a default</h3>
+        <p>Requests stay local whenever a node qualifies. Cloud only enters
+           the picture when nothing on your own hardware can serve the
+           request — and failures are typed, explicit, and never a silently
+           restarted stream.</p>
+      </div>
+      <div class="feature">
+        <h3>Vendor-neutral by design</h3>
+        <p>The engine is llama.cpp's llama-server, swappable in principle.
+           EdgeOS is the orchestration layer above it — discovery, routing,
+           and fleet management — not another inference runtime.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how-it-works" class="how">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><strong>Install the agent</strong> on each device. It supervises a local
+          llama-server, measures its real throughput, and announces itself.</li>
+      <li><strong>The router discovers it</strong> automatically via mDNS and starts
+          polling its live capabilities.</li>
+      <li><strong>Requests get scored and routed</strong> to whichever qualifying
+          node has the highest available throughput right now.</li>
+      <li><strong>Watch the fleet</strong> in the dashboard — or manage it from the
+          CLI — while everything keeps running.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="demo" class="demo">
+  <div class="wrap">
+    <h2>See it running</h2>
+    <p class="demo-intro">This is a real, live EdgeOS node — not a recording.
+       Sign in with GitHub to view it (read-only: this demo can't stop,
+       reload, or remove anything).</p>
+
+    <div id="demo-signed-out" class="demo-panel">
+      <a href="/api/auth/login" class="btn btn-primary">Sign in with GitHub</a>
+    </div>
+
+    <div id="demo-signed-in" class="demo-panel" hidden>
+      <div class="demo-user">Signed in as <strong id="demo-login"></strong> · <a href="/api/auth/logout">sign out</a></div>
+      <div class="kpis" id="demo-kpis">
+        <div class="kpi"><span class="kpi-label">Nodes</span><span class="kpi-value" id="d-kpi-nodes">–</span></div>
+        <div class="kpi"><span class="kpi-label">Healthy</span><span class="kpi-value" id="d-kpi-healthy">–</span></div>
+        <div class="kpi"><span class="kpi-label">Active requests</span><span class="kpi-value" id="d-kpi-active">–</span></div>
+        <div class="kpi"><span class="kpi-label">Fleet tok/s</span><span class="kpi-value" id="d-kpi-tokpersec">–</span></div>
+      </div>
+      <table id="demo-nodes">
+        <thead><tr><th>Node</th><th>Host</th><th>Model</th><th>State</th><th>Tok/s</th><th>Healthy</th></tr></thead>
+        <tbody id="demo-nodes-body"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>EdgeOS — Apache-2.0</span>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
