@@ -35,7 +35,7 @@ func TestChatCompletionsHandler_RoutesToLocalNode(t *testing.T) {
 	defer engine.Close()
 
 	table := tableWithNode("n1", engine.URL, capability.Model{ID: "llama-8b", State: "loaded", CtxMax: 8192, TokPerSec: 50})
-	proxy := NewProxy(table, "", "")
+	proxy := NewProxy(table, "", "", &RequestStats{})
 
 	body := `{"model":"llama-8b","messages":[{"role":"user","content":"hi"}]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
@@ -60,7 +60,7 @@ func TestChatCompletionsHandler_FallsBackToCloud(t *testing.T) {
 	defer cloud.Close()
 
 	table := NewNodeTable(3) // empty: nothing local qualifies
-	proxy := NewProxy(table, cloud.URL, "secret")
+	proxy := NewProxy(table, cloud.URL, "secret", &RequestStats{})
 
 	body := `{"model":"anything","messages":[]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
@@ -77,7 +77,7 @@ func TestChatCompletionsHandler_FallsBackToCloud(t *testing.T) {
 
 func TestChatCompletionsHandler_TypedErrorWhenNoRoute(t *testing.T) {
 	table := NewNodeTable(3)
-	proxy := NewProxy(table, "", "") // no cloud fallback configured either
+	proxy := NewProxy(table, "", "", &RequestStats{}) // no cloud fallback configured either
 
 	body := `{"model":"anything","messages":[]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
@@ -102,7 +102,7 @@ func TestChatCompletionsHandler_TypedErrorWhenNoRoute(t *testing.T) {
 func TestChatCompletionsHandler_TypedErrorWhenUpstreamUnreachable(t *testing.T) {
 	table := tableWithNode("n1", "http://127.0.0.1:1", // nothing listens here
 		capability.Model{ID: "llama-8b", State: "loaded", CtxMax: 8192, TokPerSec: 50})
-	proxy := NewProxy(table, "", "")
+	proxy := NewProxy(table, "", "", &RequestStats{})
 
 	body := `{"model":"llama-8b","messages":[]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
@@ -130,7 +130,7 @@ func TestChatCompletionsHandler_StreamsSSEIncrementally(t *testing.T) {
 	defer engine.Close()
 
 	table := tableWithNode("n1", engine.URL, capability.Model{ID: "llama-8b", State: "loaded", CtxMax: 8192, TokPerSec: 50})
-	proxy := NewProxy(table, "", "")
+	proxy := NewProxy(table, "", "", &RequestStats{})
 
 	body := `{"model":"llama-8b","messages":[],"stream":true}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
@@ -160,7 +160,7 @@ func TestChatCompletionsHandler_StreamsSSEIncrementally(t *testing.T) {
 }
 
 func TestChatCompletionsHandler_MethodNotAllowed(t *testing.T) {
-	proxy := NewProxy(NewNodeTable(3), "", "")
+	proxy := NewProxy(NewNodeTable(3), "", "", &RequestStats{})
 	req := httptest.NewRequest(http.MethodGet, "/v1/chat/completions", nil)
 	rec := httptest.NewRecorder()
 	proxy.ChatCompletionsHandler(rec, req)

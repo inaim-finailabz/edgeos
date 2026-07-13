@@ -91,17 +91,64 @@ func TestNodeTable_Get(t *testing.T) {
 	}
 }
 
-func TestNodeTable_Evict(t *testing.T) {
+func TestNodeTable_Remove(t *testing.T) {
 	table := NewNodeTable(3)
 	table.Discovered("n1", "http://example.invalid/v0/capabilities")
 
-	if !table.Evict("n1") {
-		t.Error("Evict(n1) should report true when the node was present")
+	if !table.Remove("n1") {
+		t.Error("Remove(n1) should report true when the node was present")
 	}
 	if _, ok := table.Get("n1"); ok {
-		t.Error("n1 should be gone after Evict")
+		t.Error("n1 should be gone after Remove")
 	}
-	if table.Evict("n1") {
-		t.Error("Evict(n1) again should report false")
+	if table.Remove("n1") {
+		t.Error("Remove(n1) again should report false")
+	}
+}
+
+func TestNodeTable_Remove_BlocksRediscovery(t *testing.T) {
+	table := NewNodeTable(3)
+	table.Discovered("n1", "http://example.invalid/v0/capabilities")
+	table.Remove("n1")
+
+	table.Discovered("n1", "http://example.invalid/v0/capabilities")
+
+	if _, ok := table.Get("n1"); ok {
+		t.Error("mDNS rediscovery should not resurrect a removed node")
+	}
+}
+
+func TestNodeTable_AddByURL_RestoresAfterRemove(t *testing.T) {
+	srv := fakeCapServer(t, capability.Response{Schema: "edgeos/v0", Node: capability.Node{ID: "n1"}})
+	defer srv.Close()
+
+	table := NewNodeTable(3)
+	table.Discovered("n1", srv.URL+"/v0/capabilities")
+	table.Remove("n1")
+
+	state, err := table.AddByURL(context.Background(), srv.URL+"/v0/capabilities")
+	if err != nil {
+		t.Fatalf("AddByURL: %v", err)
+	}
+	if state.ID != "n1" {
+		t.Errorf("AddByURL returned ID = %q, want n1", state.ID)
+	}
+	if _, ok := table.Get("n1"); !ok {
+		t.Error("n1 should be present after AddByURL, even after a prior Remove")
+	}
+
+	// mDNS should be able to find it again too now that it's restored.
+	table.Remove("n1")
+	table.AddByURL(context.Background(), srv.URL+"/v0/capabilities")
+	table.Discovered("n1", srv.URL+"/v0/capabilities")
+	if _, ok := table.Get("n1"); !ok {
+		t.Error("n1 should remain discoverable after being restored via AddByURL")
+	}
+}
+
+func TestNodeTable_AddByURL_Unreachable(t *testing.T) {
+	table := NewNodeTable(3)
+	if _, err := table.AddByURL(context.Background(), "http://127.0.0.1:1/v0/capabilities"); err == nil {
+		t.Error("AddByURL should error when the address is unreachable")
 	}
 }

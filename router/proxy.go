@@ -42,14 +42,16 @@ type Proxy struct {
 	CloudEndpoint string // base URL, e.g. https://api.openai.com; empty = no fallback
 	CloudAPIKey   string
 	Client        *http.Client
+	Stats         *RequestStats
 }
 
-func NewProxy(table *NodeTable, cloudEndpoint, cloudAPIKey string) *Proxy {
+func NewProxy(table *NodeTable, cloudEndpoint, cloudAPIKey string, stats *RequestStats) *Proxy {
 	return &Proxy{
 		Table:         table,
 		CloudEndpoint: cloudEndpoint,
 		CloudAPIKey:   cloudAPIKey,
 		Client:        &http.Client{}, // no blanket timeout: streams can run long
+		Stats:         stats,
 	}
 }
 
@@ -73,6 +75,7 @@ func (p *Proxy) ChatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	target, usingCloud, ok := p.route(req)
 	if !ok {
+		p.Stats.Failed.Add(1)
 		writeTypedError(w, http.StatusServiceUnavailable, "no_node_available",
 			"no local node has the requested model loaded, and no cloud fallback is configured; retry")
 		return
@@ -92,12 +95,19 @@ func (p *Proxy) ChatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Nothing has been written to the client yet, so a typed error and
 		// client-driven retry is safe — this is the only failover path.
+		p.Stats.Failed.Add(1)
 		log.Printf("edgeos-router: upstream %s unreachable: %v", target, err)
 		writeTypedError(w, http.StatusServiceUnavailable, "upstream_unavailable",
 			"the selected node became unreachable; retry")
 		return
 	}
 	defer resp.Body.Close()
+
+	if usingCloud {
+		p.Stats.Cloud.Add(1)
+	} else {
+		p.Stats.Local.Add(1)
+	}
 
 	for k, vals := range resp.Header {
 		for _, v := range vals {

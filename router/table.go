@@ -21,15 +21,17 @@ type NodeState struct {
 	Misses   int                 `json:"misses"`
 }
 
-// NodeTable is the router's live view of the fleet: discovered via mDNS,
-// kept fresh by polling GET <cap-url> every tick, evicted after
-// MissThreshold consecutive failures — per docs/CAPABILITY_SCHEMA.md.
+// NodeTable is the router's live view of the fleet: discovered via mDNS or
+// added manually by address, kept fresh by polling GET <cap-url> every
+// tick, evicted after MissThreshold consecutive failures — per
+// docs/CAPABILITY_SCHEMA.md.
 type NodeTable struct {
 	MissThreshold int
 
-	client *http.Client
-	mu     sync.RWMutex
-	nodes  map[string]*NodeState
+	client  *http.Client
+	mu      sync.RWMutex
+	nodes   map[string]*NodeState
+	removed map[string]bool // explicitly deleted; mDNS won't re-add until restored
 }
 
 func NewNodeTable(missThreshold int) *NodeTable {
@@ -37,18 +39,42 @@ func NewNodeTable(missThreshold int) *NodeTable {
 		MissThreshold: missThreshold,
 		client:        &http.Client{Timeout: 3 * time.Second},
 		nodes:         make(map[string]*NodeState),
+		removed:       make(map[string]bool),
 	}
 }
 
 // Discovered registers a node found via mDNS. It's a no-op if the node is
-// already known, so rediscovery doesn't reset an in-progress miss count.
+// already known (so rediscovery doesn't reset an in-progress miss count)
+// or was explicitly removed via Remove.
 func (t *NodeTable) Discovered(id, capURL string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if t.removed[id] {
+		return
+	}
 	if _, ok := t.nodes[id]; ok {
 		return
 	}
 	t.nodes[id] = &NodeState{ID: id, CapURL: capURL}
+}
+
+// AddByURL registers a node by address rather than waiting for mDNS —
+// e.g. one on a different subnet where multicast doesn't reach. It fetches
+// capabilities once synchronously to validate reachability and learn the
+// node's real id, and clears any prior Remove for that id.
+func (t *NodeTable) AddByURL(ctx context.Context, capURL string) (NodeState, error) {
+	cap, err := t.fetchCapabilities(ctx, capURL)
+	if err != nil {
+		return NodeState{}, err
+	}
+	state := NodeState{ID: cap.Node.ID, CapURL: capURL, Cap: *cap, LastSeen: time.Now()}
+
+	t.mu.Lock()
+	delete(t.removed, state.ID)
+	t.nodes[state.ID] = &state
+	t.mu.Unlock()
+
+	return state, nil
 }
 
 // Snapshot returns a point-in-time copy of the table for scoring/listing.
@@ -73,17 +99,16 @@ func (t *NodeTable) Get(id string) (NodeState, bool) {
 	return *n, true
 }
 
-// Evict removes a node immediately, bypassing the miss-threshold — used by
-// the dashboard's "evict now" management action. Reports whether the node
-// was present.
-func (t *NodeTable) Evict(id string) bool {
+// Remove deletes a node immediately (bypassing the miss-threshold) and
+// blacklists its id so mDNS rediscovery won't silently bring it back —
+// the dashboard's Delete action. Reports whether the node was present.
+func (t *NodeTable) Remove(id string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if _, ok := t.nodes[id]; !ok {
-		return false
-	}
+	_, ok := t.nodes[id]
 	delete(t.nodes, id)
-	return true
+	t.removed[id] = true
+	return ok
 }
 
 // PollAll fetches capabilities for every known node concurrently, updating
