@@ -10,3 +10,5 @@ models/
 *.pem
 # OS noise
 .DS_Store
+# node examples
+node_modules/

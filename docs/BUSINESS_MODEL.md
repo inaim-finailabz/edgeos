@@ -28,6 +28,36 @@
   shifted from "has a dashboard at all" to "supports a team/org, not just
   one operator" once the free dashboard shipped.
 
+## Precedent: Ollama's cloud tier
+
+Ollama is the closest comparable — fully open core (MIT), and its
+monetization is **Ollama Cloud / Turbo**: a hosted tier that runs models too
+big for local hardware, billed per-use, reached through the *same* CLI and
+API surface users already have. No separate product, no separate
+integration — the free local tool and the paid cloud tier are one
+continuous experience.
+
+That maps onto EdgeOS almost exactly, and sharpens the first SaaS bullet
+above from "a hosted cloud-fallback endpoint" into something concrete:
+**EdgeOS Cloud as the first-party `-cloud-endpoint`.** v0 already has the
+mechanism — the router fails over to whatever `-cloud-endpoint` is
+configured when no local node qualifies (see `docs/CAPABILITY_SCHEMA.md`).
+Today that has to be the user's own OpenAI/Anthropic/etc. key. The Ollama-
+style move is to offer an EdgeOS-run endpoint as *a* option for that same
+flag — billed per-token or by subscription — so someone who outgrows their
+local hardware upgrades by changing one flag, not by adopting a different
+product. This is the cleanest version of "the free tool and the paid tier
+are the same software": the fallback seam was already there, unmonetized,
+and it needs no new integration surface, just an EdgeOS-run endpoint on
+the other end of a flag that already exists.
+
+This doesn't replace the enterprise-ops SaaS bullets above (multi-user
+auth, multi-site visibility, SLA support) — those target teams. The cloud-
+fallback tier targets the same individual/hobbyist user the OSS core
+already serves, the moment their own hardware isn't enough. Two different
+upgrade paths, both consistent with "the free and paid tiers are the same
+software."
+
 ## Why hybrid over the alternatives
 
 This supersedes three narrower options that were on the table (open-core +

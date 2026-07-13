@@ -1,0 +1,279 @@
+openapi: 3.0.3
+info:
+  title: EdgeOS API
+  version: "0"
+  description: |
+    EdgeOS v0's client-facing API: an OpenAI-compatible chat completions
+    endpoint, plus fleet management (node CRUD and per-node engine actions).
+    This describes the **router**'s API — the thing clients actually talk
+    to. Agent endpoints (`GET /v0/capabilities`, `POST /v0/actions/*`) are
+    included at the end for completeness; they're served by each agent
+    directly, at the agent's own address, not the router's.
+
+    See docs/CAPABILITY_SCHEMA.md for the full prose contract this spec is
+    generated to match, and docs/API_REFERENCE.md for per-language
+    quickstarts, token setup, and how the scoring/routing algorithm works.
+servers:
+  - url: http://localhost:8081
+    description: router (default -addr)
+
+tags:
+  - name: inference
+    description: OpenAI-compatible chat completions
+  - name: nodes
+    description: Fleet read/CRUD
+  - name: actions
+    description: Per-node engine control (authenticated)
+
+paths:
+  /v1/chat/completions:
+    post:
+      tags: [inference]
+      summary: OpenAI-compatible chat completion (streaming or not)
+      description: |
+        Scores the fleet for the requested `model`, forwards the request
+        unmodified to the winning node's engine (or the configured cloud
+        fallback), and proxies the response straight through — including
+        an SSE stream when `stream: true`. See docs/API_REFERENCE.md for
+        the scoring algorithm.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+      responses:
+        "200":
+          description: |
+            A chat completion, or (if `stream: true`) an SSE stream of
+            `text/event-stream` chunks in the OpenAI chat.completion.chunk
+            shape, terminated by `data: [DONE]`. Body shape beyond the
+            fields the router reads (`model`, `messages`, `max_tokens`) is
+            whatever the winning engine returns, unmodified.
+          content:
+            application/json:
+              schema: { type: object }
+            text/event-stream:
+              schema: { type: string }
+        "400":
+          description: Malformed request body
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        "503":
+          description: |
+            No local node has the requested model loaded and no cloud
+            fallback is configured, or the selected node became
+            unreachable before any response bytes were sent. Includes
+            `Retry-After`. Never returned after a stream has already
+            started — see docs/CAPABILITY_SCHEMA.md's failover rule.
+          headers:
+            Retry-After: { schema: { type: string } }
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/Error" } }
+
+  /v0/nodes:
+    get:
+      tags: [nodes]
+      summary: List the fleet, with a KPI summary
+      responses:
+        "200":
+          description: Live node list plus a fleet-wide summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodes:
+                    type: array
+                    items: { $ref: "#/components/schemas/NodeState" }
+                  summary: { $ref: "#/components/schemas/Summary" }
+    post:
+      tags: [nodes]
+      summary: Register a node by address (for mDNS-unreachable nodes)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cap_url: { type: string, description: "full capabilities URL; takes precedence over host/port" }
+                host: { type: string }
+                port: { type: integer, description: "defaults to 8090" }
+      responses:
+        "201":
+          description: Registered — fetched its capabilities synchronously to confirm reachability
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/NodeState" } }
+        "400": { description: "neither cap_url nor host was given" }
+        "401": { description: "missing/incorrect bearer token" }
+        "503": { description: "address unreachable" }
+
+  /v0/nodes/{id}:
+    get:
+      tags: [nodes]
+      summary: Read one node
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/NodeState" } } } }
+        "404": { description: not found }
+    delete:
+      tags: [nodes]
+      summary: Delete a node — permanent, blacklists the id against mDNS rediscovery
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: removed }
+        "401": { description: "missing/incorrect bearer token" }
+        "404": { description: not found }
+
+  /v0/nodes/{id}/actions/{action}:
+    post:
+      tags: [actions]
+      summary: Proxy an engine action (stop|reload) to this node's agent
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [stop, reload] } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model_path: { type: string, description: "required for reload" }
+      responses:
+        "200": { description: "{\"status\": \"stopped\"|\"reloaded\"}" }
+        "400": { description: "unknown action, or reload missing model_path" }
+        "401": { description: "missing/incorrect bearer token" }
+        "404": { description: node not found }
+        "503": { description: agent unreachable }
+
+  /v0/capabilities:
+    get:
+      tags: [nodes]
+      summary: An agent's own live capabilities (served by the agent, not the router)
+      responses:
+        "200":
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/Capabilities" } }
+
+  /v0/actions/stop:
+    post:
+      tags: [actions]
+      summary: Stop the agent's engine (served by the agent, not the router)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: "{\"status\": \"stopped\"}" }
+        "401": { description: "missing/incorrect bearer token" }
+        "404": { description: "-management-token not configured on this agent" }
+
+  /v0/actions/reload:
+    post:
+      tags: [actions]
+      summary: Reload the agent's engine against a new model (served by the agent, not the router)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model_path]
+              properties: { model_path: { type: string } }
+      responses:
+        "200": { description: "{\"status\": \"reloaded\"}" }
+        "400": { description: "model_path missing" }
+        "401": { description: "missing/incorrect bearer token" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        The shared static token set via -management-token /
+        $EDGEOS_MANAGEMENT_TOKEN — identical on every agent and the
+        router. No accounts/roles in v0. See docs/API_REFERENCE.md.
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            type: { type: string }
+            message: { type: string }
+
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model: { type: string, description: "must match a model id a node reports as state: loaded" }
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              role: { type: string, enum: [system, user, assistant] }
+              content: { type: string }
+        max_tokens: { type: integer, description: "default 512 if omitted; also used in the ctx-fit estimate" }
+        stream: { type: boolean, default: false }
+
+    Capabilities:
+      type: object
+      properties:
+        schema: { type: string, example: "edgeos/v0" }
+        node:
+          type: object
+          properties:
+            id: { type: string }
+            hostname: { type: string }
+            platform: { type: string, example: "linux/arm64" }
+            accel: { type: string, example: "cuda" }
+            mem_total_mb: { type: integer }
+            mem_free_mb: { type: integer }
+        engine:
+          type: object
+          properties:
+            kind: { type: string, example: "llama.cpp" }
+            endpoint: { type: string }
+            healthy: { type: boolean }
+        models:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              state: { type: string, enum: [disabled, loading, loaded, stopped, error] }
+              ctx_max: { type: integer }
+              tok_per_sec: { type: number, description: "measured at load time, never estimated" }
+        load:
+          type: object
+          properties:
+            active_requests: { type: integer }
+            queue_depth: { type: integer, description: "always 0 in v0 — no native llama-server metric" }
+
+    NodeState:
+      type: object
+      properties:
+        id: { type: string }
+        cap_url: { type: string }
+        cap: { $ref: "#/components/schemas/Capabilities" }
+        last_seen: { type: string, format: date-time }
+        misses: { type: integer }
+
+    Summary:
+      type: object
+      properties:
+        total_nodes: { type: integer }
+        healthy_nodes: { type: integer }
+        total_active_requests: { type: integer }
+        total_tok_per_sec: { type: number }
+        distinct_models: { type: integer }
+        requests_served_local: { type: integer }
+        requests_served_cloud: { type: integer }
+        requests_failed: { type: integer }
