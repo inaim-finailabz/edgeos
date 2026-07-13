@@ -1,0 +1,12 @@
+# binaries & builds
+bin/
+dist/
+*.exe
+# models — never commit GGUFs
+*.gguf
+models/
+# env & secrets
+.env
+*.pem
+# OS noise
+.DS_Store
