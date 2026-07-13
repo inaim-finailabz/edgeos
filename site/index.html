@@ -135,6 +135,19 @@
     </div>
 
     <pre class="code-panel"><code id="lang-code"></code></pre>
+
+    <div id="try-it" class="try-it" hidden>
+      <div class="try-it-config">
+        <label>Router URL <input id="try-router" value="http://localhost:8081" placeholder="http://localhost:8081"></label>
+        <label>Model <input id="try-model" placeholder="e.g. qwen3-1.7b-Q4_K_M.gguf"></label>
+      </div>
+      <div class="try-it-config">
+        <input id="try-prompt" placeholder="Say something…" value="Say hello in exactly three words">
+        <button id="try-run" class="btn btn-primary">Run</button>
+      </div>
+      <pre class="code-panel try-it-output" id="try-output">Response appears here — this makes a real request from your browser to the router URL above. No proxy, no data sent anywhere else.</pre>
+    </div>
+
     <p class="connect-hint">Full runnable examples: <code>examples/&lt;language&gt;/</code> in the repo.</p>
   </div>
 </section>

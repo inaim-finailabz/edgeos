@@ -55,9 +55,15 @@ const reader = res.body.getReader();
   -d '{"model":"<id from GET /v0/nodes>","messages":[{"role":"user","content":"hi"}],"stream":true}'`,
   };
 
+  const tryIt = document.getElementById("try-it");
+
   function select(lang) {
     codeEl.textContent = snippets[lang];
     [...tabs.children].forEach(btn => btn.setAttribute("aria-selected", String(btn.dataset.lang === lang)));
+    // Only the browser snippet can actually run client-side -- Python/
+    // Node/Go/curl would need a hosted execution sandbox, a much bigger
+    // (and more security-sensitive) feature than this site takes on.
+    tryIt.hidden = lang !== "browser";
   }
 
   tabs.addEventListener("click", (e) => {
@@ -66,6 +72,64 @@ const reader = res.body.getReader();
   });
 
   select("python");
+
+  // "Run" makes a real request from the visitor's own browser straight to
+  // the router URL they supply -- nothing proxies through this site or
+  // its backend, so this works against localhost or any reachable router.
+  const tryRouter = document.getElementById("try-router");
+  const tryModel = document.getElementById("try-model");
+  const tryPrompt = document.getElementById("try-prompt");
+  const tryOutput = document.getElementById("try-output");
+  const tryRunBtn = document.getElementById("try-run");
+
+  tryRunBtn.addEventListener("click", async () => {
+    const router = tryRouter.value.trim().replace(/\/$/, "");
+    const model = tryModel.value.trim();
+    const prompt = tryPrompt.value.trim();
+    if (!router || !model || !prompt) {
+      tryOutput.textContent = "Fill in router URL, model, and a prompt first.";
+      return;
+    }
+
+    tryRunBtn.disabled = true;
+    tryOutput.textContent = "";
+    try {
+      const res = await fetch(`${router}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], stream: true, max_tokens: 300 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        tryOutput.textContent = "Error: " + (err.error ? err.error.message : res.status);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          const dataLine = line.split("\n").find(l => l.startsWith("data: "));
+          if (!dataLine) continue;
+          const payload = dataLine.slice(6);
+          if (payload === "[DONE]") continue;
+          const chunk = JSON.parse(payload);
+          const delta = chunk.choices?.[0]?.delta || {};
+          const piece = delta.content || delta.reasoning_content;
+          if (piece) tryOutput.textContent += piece;
+        }
+      }
+    } catch (err) {
+      tryOutput.textContent = "Error: " + err.message + " (CORS or network issue reaching that router URL?)";
+    } finally {
+      tryRunBtn.disabled = false;
+    }
+  });
 })();
 
 // Carousel: plain vanilla, auto-advance + dot navigation.
