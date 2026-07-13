@@ -1,49 +1,39 @@
-# Business model — open questions
+# Business model
 
-Nothing here is decided. This is a brainstorm of viable paths and their
-tradeoffs, to be revisited once there's usage data to argue from. The core
-(agent, router, CLI) is Apache-2.0 per the README regardless of which path
-gets picked — the question is what, if anything, sits alongside it.
+## Decision: hybrid — OSS-led adoption, enterprise SaaS monetization
 
-## Monetization angles considered
+- **agent, router, CLI stay Apache-2.0**, free, full-featured. This is the
+  bottom-up growth engine: individual devs and hobbyists (Pi + a GPU box at
+  home) adopt it because it's genuinely useful with zero cost and no
+  lock-in, per the README's "vendor-neutral" pitch.
+- **Monetization is a hosted/managed SaaS tier aimed at enterprises**, not a
+  feature-gated fork of the core. The free core and the paid tier are the
+  same software; the SaaS plan sells the operational parts individuals
+  don't want to run themselves:
+  - hosted cloud-fallback endpoint (the router's existing failover seam —
+    see `docs/CAPABILITY_SCHEMA.md`)
+  - fleet management / multi-site visibility across many agents
+  - auth and policy controls
+  - SLA-backed support
 
-### Open-core + hosted cloud fallback
-Charge for the cloud endpoint that EdgeOS fails over to when no local node
-qualifies. The router already has a natural seam for this (`docs/CAPABILITY_SCHEMA.md`'s
-fallback path) — a hosted option could be one line of router config away.
-- *For*: usage-based, low friction, doesn't touch the OSS core's value prop.
-- *Against*: only monetizes the failure case; if local coverage is good,
-  there's little to charge for.
+  Note: several of these (auth, multi-site/fleet orchestration) are
+  explicitly out of v0 scope per `CLAUDE.md`. That's fine for the OSS core —
+  it's exactly the set of things that becomes roadmap work for the SaaS
+  tier once there's enterprise demand pulling on it. Don't build them into
+  the core to avoid a paid/free feature split.
 
-### Open-core + paid enterprise features
-Core stays free; a paid tier adds fleet management, auth/policy, multi-site
-orchestration.
-- *For*: standard open-core playbook, clear upgrade path for larger orgs.
-- *Against*: several of the obvious paid features (auth, GPU scheduling,
-  registry sync) are explicitly out of v0 scope per `CLAUDE.md` — this path
-  implies a roadmap decision, not just a pricing decision.
+## Why hybrid over the alternatives
 
-### Support / services only
-Stay fully open source; revenue from support contracts, integration
-consulting, managed deployments on the customer's own hardware.
-- *For*: no OSS/paid tension, easiest to reconcile with "vendor-neutral" in
-  the README's pitch.
-- *Against*: doesn't scale the way product revenue does; ties revenue to
-  headcount.
+This supersedes three narrower options that were on the table (open-core +
+paid features baked into the core, hosted-fallback-only, and pure
+services): those either created OSS/paid tension inside the same binary, or
+capped revenue to a single seam (the fallback path) rather than the
+broader enterprise ops surface (fleet, auth, support).
 
-## Target customer segments considered
+## Sequencing
 
-- **Individual devs / hobbyists** — bottom-up OSS adoption (Pi + a GPU box
-  at home), monetization comes later if at all.
-- **Startups/SMBs with edge hardware** — retail, robotics, IoT teams who
-  want inference orchestration without building it in-house.
-- **Enterprises with data residency needs** — on-prem/private inference for
-  compliance, cloud strictly as fallback; higher touch, longer sales cycle,
-  and the auth/policy gap in v0 matters most here.
-
-## Why this is unresolved on purpose
-
-Picking a segment or pricing model now would be guessing ahead of any usage
-signal. The more useful near-term move is probably: ship v0, see who shows
-up and how they use the fallback path, then revisit this doc with real
-data instead of priors.
+1. v0 ships fully open, no paid tier yet — the goal right now is developer
+   adoption and real usage data, not revenue.
+2. The enterprise SaaS tier gets scoped once there's inbound demand from
+   teams asking for the things above (fleet visibility, auth, support) —
+   not speculatively ahead of that signal.
