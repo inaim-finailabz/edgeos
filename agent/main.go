@@ -24,6 +24,7 @@ func main() {
 	accel := flag.String("accel", "", "override accelerator reported in capabilities (default: best-effort detection)")
 	stateDir := flag.String("state-dir", defaultStateDir(), "directory for persisted agent state (node id)")
 	enableMDNS := flag.Bool("mdns", true, "announce this agent via mDNS")
+	managementToken := flag.String("management-token", os.Getenv("EDGEOS_MANAGEMENT_TOKEN"), "bearer token required for /v0/actions/*; empty disables them (default: $EDGEOS_MANAGEMENT_TOKEN)")
 	flag.Parse()
 
 	nodeID, err := loadOrCreateNodeID(*stateDir)
@@ -65,7 +66,12 @@ func main() {
 	srv := &server{nodeID: nodeID, accel: resolvedAccel, engine: sup}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v0/capabilities", srv.capabilitiesHandler)
+	mux.Handle("/v0/actions/", actionsMux(sup, *managementToken))
 	httpServer := &http.Server{Addr: *addr, Handler: mux}
+
+	if *managementToken == "" {
+		log.Printf("edgeos-agent: no -management-token configured; /v0/actions/* disabled")
+	}
 
 	go func() {
 		<-ctx.Done()

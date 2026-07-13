@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"edgeos/internal/capability"
@@ -50,6 +51,15 @@ type EngineSupervisor interface {
 	Endpoint() string
 }
 
+// supervisorCmd is a management request (Stop/Reload) delivered to the
+// single goroutine that owns the engine process, so process lifecycle is
+// never touched from two goroutines at once.
+type supervisorCmd struct {
+	kind      string // "stop" | "reload"
+	modelPath string // for "reload"
+	result    chan error
+}
+
 // Supervisor spawns and monitors a llama-server process, benchmarks it at
 // load time, and polls it for load stats. It never sits in the token path —
 // the router talks to the engine endpoint directly.
@@ -59,12 +69,15 @@ type Supervisor struct {
 
 	mu    sync.RWMutex
 	state EngineSnapshot
+
+	commands chan supervisorCmd
 }
 
 func NewSupervisor(cfg SupervisorConfig) *Supervisor {
 	s := &Supervisor{
-		cfg:    cfg,
-		client: &http.Client{Timeout: 5 * time.Second},
+		cfg:      cfg,
+		client:   &http.Client{Timeout: 5 * time.Second},
+		commands: make(chan supervisorCmd),
 	}
 	s.state = EngineSnapshot{ModelState: "disabled"}
 	if cfg.ModelPath != "" {
@@ -88,60 +101,138 @@ func (s *Supervisor) setState(fn func(*EngineSnapshot)) {
 	fn(&s.state)
 }
 
-// Run spawns llama-server (if configured), waits for it to become healthy,
-// benchmarks it, then polls load stats until ctx is cancelled. It blocks.
+// Stop kills the currently running engine, if any, and marks it stopped.
+// Safe to call when no engine is running. Blocks until applied by the Run
+// loop, so callers get a clean success/failure result.
+func (s *Supervisor) Stop(ctx context.Context) error {
+	return s.sendCommand(ctx, supervisorCmd{kind: "stop"})
+}
+
+// Reload stops any running engine and starts a new one against modelPath,
+// waiting for it to become healthy and re-benchmarking it — the same path
+// as initial startup, just triggered on demand.
+func (s *Supervisor) Reload(ctx context.Context, modelPath string) error {
+	return s.sendCommand(ctx, supervisorCmd{kind: "reload", modelPath: modelPath})
+}
+
+func (s *Supervisor) sendCommand(ctx context.Context, cmd supervisorCmd) error {
+	cmd.result = make(chan error, 1)
+	select {
+	case s.commands <- cmd:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case err := <-cmd.result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Run owns the engine process for the agent's whole lifetime: initial
+// spawn, health/benchmark, periodic load polling, and any Stop/Reload
+// commands — all serialized through this one goroutine so the process is
+// never touched from two places at once. Blocks until ctx is cancelled.
 func (s *Supervisor) Run(ctx context.Context) error {
-	if s.cfg.ModelPath == "" {
-		log.Printf("edgeos-agent: no -model configured, engine disabled")
-		<-ctx.Done()
+	var cmd *exec.Cmd
+	var exited chan error
+
+	stopEngine := func() {
+		if cmd == nil || cmd.Process == nil {
+			return
+		}
+		cmd.Process.Signal(syscall.SIGTERM)
+		select {
+		case <-exited:
+		case <-time.After(10 * time.Second):
+			cmd.Process.Kill()
+			<-exited
+		}
+		cmd, exited = nil, nil
+	}
+
+	startEngine := func(modelPath string) error {
+		if modelPath == "" {
+			s.setState(func(st *EngineSnapshot) {
+				st.ModelState, st.Healthy, st.ModelID = "disabled", false, ""
+			})
+			return nil
+		}
+		s.setState(func(st *EngineSnapshot) {
+			st.ModelState, st.Healthy, st.ModelID = "loading", false, filepath.Base(modelPath)
+		})
+
+		c := exec.CommandContext(ctx, s.cfg.LlamaServerBin,
+			"-m", modelPath,
+			"--host", s.cfg.EngineHost,
+			"--port", strconv.Itoa(s.cfg.EnginePort),
+			"-c", strconv.Itoa(s.cfg.CtxSize),
+		)
+		c.Stdout, c.Stderr = os.Stdout, os.Stderr
+		if err := c.Start(); err != nil {
+			s.setState(func(st *EngineSnapshot) { st.ModelState = "error" })
+			return fmt.Errorf("start %s: %w", s.cfg.LlamaServerBin, err)
+		}
+		log.Printf("edgeos-agent: spawned %s (pid %d) for %s", s.cfg.LlamaServerBin, c.Process.Pid, filepath.Base(modelPath))
+
+		ex := make(chan error, 1)
+		go func() { ex <- c.Wait() }()
+		cmd, exited = c, ex
+
+		if err := s.waitForHealthy(ctx, 60*time.Second); err != nil {
+			s.setState(func(st *EngineSnapshot) { st.ModelState = "error"; st.Healthy = false })
+			return fmt.Errorf("engine did not become healthy: %w", err)
+		}
+		if err := s.runBenchmark(ctx); err != nil {
+			s.setState(func(st *EngineSnapshot) { st.ModelState = "error"; st.Healthy = false })
+			return fmt.Errorf("benchmark: %w", err)
+		}
+		log.Printf("edgeos-agent: %s loaded, measured %.1f tok/s", filepath.Base(modelPath), s.Snapshot().TokPerSec)
 		return nil
 	}
 
-	cmd := exec.CommandContext(ctx, s.cfg.LlamaServerBin,
-		"-m", s.cfg.ModelPath,
-		"--host", s.cfg.EngineHost,
-		"--port", strconv.Itoa(s.cfg.EnginePort),
-		"-c", strconv.Itoa(s.cfg.CtxSize),
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		s.setState(func(st *EngineSnapshot) { st.ModelState = "error" })
-		return fmt.Errorf("start %s: %w", s.cfg.LlamaServerBin, err)
+	if err := startEngine(s.cfg.ModelPath); err != nil {
+		log.Printf("edgeos-agent: %v", err)
 	}
-	log.Printf("edgeos-agent: spawned %s (pid %d) for %s", s.cfg.LlamaServerBin, cmd.Process.Pid, s.state.ModelID)
-
-	exited := make(chan error, 1)
-	go func() { exited <- cmd.Wait() }()
-
-	if err := s.waitForHealthy(ctx, 60*time.Second); err != nil {
-		s.setState(func(st *EngineSnapshot) { st.ModelState = "error"; st.Healthy = false })
-		return fmt.Errorf("engine did not become healthy: %w", err)
-	}
-
-	if err := s.runBenchmark(ctx); err != nil {
-		s.setState(func(st *EngineSnapshot) { st.ModelState = "error"; st.Healthy = false })
-		return fmt.Errorf("benchmark: %w", err)
-	}
-	log.Printf("edgeos-agent: %s loaded, measured %.1f tok/s", s.state.ModelID, s.Snapshot().TokPerSec)
 
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	defer stopEngine()
+
 	for {
+		var exitedCh chan error
+		if exited != nil {
+			exitedCh = exited
+		}
 		select {
 		case <-ctx.Done():
 			return nil
-		case err := <-exited:
+		case err := <-exitedCh:
+			cmd, exited = nil, nil
 			if ctx.Err() != nil {
 				return nil
 			}
+			log.Printf("edgeos-agent: %s exited: %v", s.cfg.LlamaServerBin, err)
 			s.setState(func(st *EngineSnapshot) { st.ModelState = "error"; st.Healthy = false })
-			return fmt.Errorf("%s exited: %w", s.cfg.LlamaServerBin, err)
 		case <-ticker.C:
-			if err := s.pollOnce(ctx); err != nil {
-				log.Printf("edgeos-agent: poll engine: %v", err)
-				s.setState(func(st *EngineSnapshot) { st.Healthy = false })
+			if exited != nil {
+				if err := s.pollOnce(ctx); err != nil {
+					log.Printf("edgeos-agent: poll engine: %v", err)
+					s.setState(func(st *EngineSnapshot) { st.Healthy = false })
+				}
+			}
+		case c := <-s.commands:
+			switch c.kind {
+			case "stop":
+				stopEngine()
+				s.setState(func(st *EngineSnapshot) {
+					st.ModelState, st.Healthy, st.ModelID = "stopped", false, ""
+				})
+				c.result <- nil
+			case "reload":
+				stopEngine()
+				c.result <- startEngine(c.modelPath)
 			}
 		}
 	}
