@@ -2,25 +2,31 @@
 
 ## Decision: hybrid — OSS-led adoption, enterprise SaaS monetization
 
-- **agent, router, CLI stay Apache-2.0**, free, full-featured. This is the
-  bottom-up growth engine: individual devs and hobbyists (Pi + a GPU box at
-  home) adopt it because it's genuinely useful with zero cost and no
-  lock-in, per the README's "vendor-neutral" pitch.
+- **agent, router, CLI, dashboard all stay Apache-2.0**, free, full-featured.
+  This is the bottom-up growth engine: individual devs and hobbyists (Pi + a
+  GPU box at home) adopt it because it's genuinely useful with zero cost and
+  no lock-in, per the README's "vendor-neutral" pitch. The dashboard —
+  live fleet view plus single-shared-token stop/reload/evict — ships free;
+  it was a deliberate call to put basic single-operator fleet visibility in
+  the OSS core rather than holding it back for the paid tier, since it's
+  the natural companion to the CLI and core to "genuinely useful."
 - **Monetization is a hosted/managed SaaS tier aimed at enterprises**, not a
   feature-gated fork of the core. The free core and the paid tier are the
-  same software; the SaaS plan sells the operational parts individuals
-  don't want to run themselves:
+  same software; the SaaS plan sells the operational and organizational
+  parts a single operator doesn't need:
   - hosted cloud-fallback endpoint (the router's existing failover seam —
     see `docs/CAPABILITY_SCHEMA.md`)
-  - fleet management / multi-site visibility across many agents
-  - auth and policy controls
-  - SLA-backed support
+  - multi-user auth with accounts/roles/SSO (v0's dashboard auth is one
+    shared static token — fine for one operator, not a team)
+  - multi-site / multi-cluster fleet visibility (v0 is one router's view)
+  - audit logs and SLA-backed support
 
-  Note: several of these (auth, multi-site/fleet orchestration) are
+  Note: several of these (real auth, multi-site orchestration) are
   explicitly out of v0 scope per `CLAUDE.md`. That's fine for the OSS core —
   it's exactly the set of things that becomes roadmap work for the SaaS
-  tier once there's enterprise demand pulling on it. Don't build them into
-  the core to avoid a paid/free feature split.
+  tier once there's enterprise demand pulling on it. The differentiator
+  shifted from "has a dashboard at all" to "supports a team/org, not just
+  one operator" once the free dashboard shipped.
 
 ## Why hybrid over the alternatives
 

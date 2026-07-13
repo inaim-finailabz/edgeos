@@ -54,4 +54,37 @@ or restart it — the response just ends. This is the hard rule from
                "last_seen": "2026-07-13T10:03:06Z", "misses": 0 } ] }
 ```
 
-Used by `edgeos nodes`; not part of the agent contract above.
+Used by `edgeos nodes` and the dashboard; not part of the agent contract above.
+
+## Management API (dashboard)
+
+Added to support the dashboard's stop/reload/evict controls. These are the
+only authenticated endpoints in v0 — everything above (`/v0/capabilities`,
+`/v1/chat/completions`, `/v0/nodes`) stays open, unchanged. This is a
+deliberate, narrow exception to "no auth in v0" in `CLAUDE.md`: one shared
+static bearer token gates writes, nothing more (no accounts, no roles). Set
+the identical token via `-management-token` (or `$EDGEOS_MANAGEMENT_TOKEN`)
+on every agent and on the router; leaving it unset on a component disables
+its management routes (404), which is the default.
+
+Agent, requires `Authorization: Bearer <token>`:
+- `POST /v0/actions/stop` — stop the running engine. Safe if already stopped.
+- `POST /v0/actions/reload` — `{"model_path": "..."}`; stops any running
+  engine and starts a new one against that path, re-running the load-time
+  benchmark. Same codepath as initial startup.
+
+Router, requires the same token, proxies the two above to the named node's
+agent:
+- `POST /v0/nodes/{id}/actions/stop`
+- `POST /v0/nodes/{id}/actions/reload` — body forwarded unmodified.
+
+Router-only (no agent involved):
+- `POST /v0/nodes/{id}/evict` — removes the node from the table immediately,
+  bypassing the 3-miss threshold.
+
+The dashboard itself holds no token server-side: it's a static file server
+plus a transparent reverse proxy to the router under `/api/` (e.g.
+`/api/v0/nodes` → router's `GET /v0/nodes`), forwarding whatever
+`Authorization` header the browser sends. The operator enters the token
+once in the page (stored in the browser's `localStorage`); the router and
+agents are what actually verify it.

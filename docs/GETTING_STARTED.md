@@ -11,10 +11,12 @@ configured cloud endpoint when nothing local qualifies.
 
 Per [CLAUDE.md](../CLAUDE.md), intentionally out of scope: registry sync
 (model catalog / fleet-wide sync — `edgeos pull` is a plain file download,
-not a registry), vector store, GPU scheduling, phone-as-node, auth. Also:
-no crash-auto-restart of a dead `llama-server` process (the agent reports
-`error` state and stops), and `queue_depth` is always `0` — llama-server has
-no native queue-depth metric to report.
+not a registry), vector store, GPU scheduling, phone-as-node, and any
+multi-user auth (the dashboard's management token is a single shared
+secret, not accounts/roles). Also: no crash-auto-restart of a dead
+`llama-server` process (the agent reports `error` state and stops), and
+`queue_depth` is always `0` — llama-server has no native queue-depth metric
+to report.
 
 ## Prerequisites
 
@@ -28,8 +30,8 @@ no native queue-depth metric to report.
 ## Build
 
 ```sh
-make build    # agent, router, cli for your local OS/arch -> dist/
-make cross    # all three for linux/arm64, linux/amd64, darwin/arm64
+make build    # agent, router, cli, dashboard for your local OS/arch -> dist/
+make cross    # all four for linux/arm64, linux/amd64, darwin/arm64
 ```
 
 Cross-compiled binaries land in `dist/<os>-<arch>/<component>` — copy the
@@ -91,6 +93,31 @@ The router scores every node reporting that model as `loaded` with enough
 `ctx_max` for the request (a v0 heuristic token estimate — no tokenizer
 dependency), picks the highest `tok_per_sec` adjusted for
 `active_requests`, and proxies the response straight through.
+
+## Manage the fleet with the dashboard
+
+Stop/reload/evict are authenticated — set the same `-management-token` (or
+`$EDGEOS_MANAGEMENT_TOKEN`) on every agent and the router, or those routes
+stay disabled (404):
+
+```sh
+export EDGEOS_MANAGEMENT_TOKEN=change-me
+./dist/darwin-arm64/cli up -model ~/.edgeos/models/qwen2.5-3b-instruct-q4_k_m.gguf   # picks up the env var
+./dist/darwin-arm64/router -addr :8081                                              # same
+./dist/darwin-arm64/dashboard -addr :8092 -router http://localhost:8081
+```
+
+Open `http://localhost:8092`, paste `change-me` into the token field (kept
+in the browser's `localStorage`), and you get a live, auto-refreshing table
+of every node — model, state, tok/s, active requests, health — with Stop,
+Reload (prompts for a new model path), and Evict buttons per node. The
+dashboard itself holds no secret: it's a static page plus a reverse proxy
+to the router under `/api/`, so the token you enter is what the router and
+agents actually check.
+
+This is single-shared-token auth, not multi-user accounts — see
+[docs/BUSINESS_MODEL.md](BUSINESS_MODEL.md) for why that split is
+deliberate.
 
 ## Benchmark a llama-server directly
 
