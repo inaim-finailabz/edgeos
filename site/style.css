@@ -61,13 +61,14 @@ a { color: var(--accent); }
 .site-header nav a:hover { color: var(--text); }
 
 .hero { padding: 4rem 0; }
+.hero .wrap { max-width: 84rem; }
 .hero-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 0.85fr 1.3fr;
   gap: 3rem;
   align-items: center;
 }
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .hero-grid { grid-template-columns: 1fr; }
 }
 
