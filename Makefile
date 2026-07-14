@@ -1,4 +1,4 @@
-BINARIES := agent router cli dashboard
+BINARIES := agent router cli dashboard mcp
 PLATFORMS := linux/arm64 linux/amd64 darwin/arm64
 DIST := dist
 
