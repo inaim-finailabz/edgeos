@@ -101,6 +101,42 @@ restart the stream once one has started. See
 [`docs/CAPABILITY_SCHEMA.md`](CAPABILITY_SCHEMA.md) for the full contract
 this implements.
 
+## Parallel fan-out
+
+`POST /v0/parallel-completions` dispatches several independent chat
+completions concurrently instead of one at a time:
+
+```json
+{
+  "requests": [
+    { "model": "llama-8b", "messages": [{"role": "user", "content": "summarize this in one sentence: ..."}] },
+    { "model": "qwen-14b",  "messages": [{"role": "user", "content": "extract dates from: ..."}] }
+  ]
+}
+```
+
+Each entry is scored and routed exactly like a standalone
+`/v1/chat/completions` call — this is a fan-out primitive, not a
+prompt-splitting framework. Deciding how to break a task into sub-prompts
+and how to combine the results back into one answer is the caller's job;
+EdgeOS's part is just running each piece on whichever node is best for it,
+concurrently. Max 32 requests per call. Always non-streaming — each
+`requests[i].stream` is forced to `false` regardless of what's sent,
+since the response collects every sub-request's full result as one JSON
+value rather than relaying N concurrent SSE streams to the client.
+
+```json
+{
+  "results": [
+    { "index": 0, "status": "ok", "response": { "...": "full chat completion response" } },
+    { "index": 1, "status": "error", "error": { "type": "no_node_available", "message": "..." } }
+  ]
+}
+```
+
+One sub-request failing doesn't fail the others — check `results[i].status`
+per entry, in the same order as the input.
+
 ## Fleet management
 
 `GET /v0/nodes` (no auth) gives you the full live table plus a KPI

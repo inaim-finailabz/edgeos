@@ -46,6 +46,15 @@ started when the upstream connection drops, the router does **not** retry
 or restart it — the response just ends. This is the hard rule from
 `CLAUDE.md`: no silent stream restart.
 
+`POST /v0/parallel-completions` — fan out N independent chat completions
+concurrently (`{"requests": [...]}`, max 32), each scored and routed like a
+standalone `/v1/chat/completions` call. Splitting a task into sub-prompts
+and combining results is the caller's job, not EdgeOS's — this is a
+fan-out primitive, not a prompt-engineering framework. Always
+non-streaming (each sub-request's `stream` is forced `false`); one entry
+failing doesn't fail the others. See `docs/API_REFERENCE.md` for the full
+request/response shape.
+
 `GET /v0/nodes` — the router's live fleet view plus a KPI summary:
 
 ```json

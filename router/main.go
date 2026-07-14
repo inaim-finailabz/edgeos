@@ -31,6 +31,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", proxy.ChatCompletionsHandler)
+	mux.HandleFunc("POST /v0/parallel-completions", proxy.ParallelCompletionsHandler)
 	mux.HandleFunc("GET /v0/nodes", nodesHandler(table, stats))
 	mux.HandleFunc("POST /v0/nodes", createNodeHandler(table, *managementToken))
 	mux.HandleFunc("GET /v0/nodes/{id}", getNodeHandler(table))

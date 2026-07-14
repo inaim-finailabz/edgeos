@@ -127,6 +127,33 @@ func buildTools(c *fleetClient) []toolEntry {
 			},
 			handler: handleAskFleet(c),
 		},
+		{
+			def: tool{
+				Name: "ask_fleet_parallel",
+				Description: "Send several independent prompts to the fleet concurrently instead of one at a time -- a fan-out primitive. " +
+					"Each entry is scored and routed like a separate ask_fleet call would be; deciding how to split a task into these " +
+					"prompts and how to combine the results is the caller's job. Max 32 prompts per call.",
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"prompts": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"model":      map[string]any{"type": "string"},
+									"prompt":     map[string]any{"type": "string"},
+									"max_tokens": map[string]any{"type": "integer", "description": "default 512"},
+								},
+								"required": []string{"model", "prompt"},
+							},
+						},
+					},
+					"required": []string{"prompts"},
+				},
+			},
+			handler: handleAskFleetParallel(c),
+		},
 	}
 
 	if c.ManagementToken != "" {
@@ -243,6 +270,100 @@ func handleAskFleet(c *fleetClient) toolHandler {
 			return textResult(msg.Content)
 		}
 		return textResult(msg.ReasoningContent)
+	}
+}
+
+func handleAskFleetParallel(c *fleetClient) toolHandler {
+	return func(ctx context.Context, args json.RawMessage) toolsCallResult {
+		var params struct {
+			Prompts []struct {
+				Model     string `json:"model"`
+				Prompt    string `json:"prompt"`
+				MaxTokens int    `json:"max_tokens"`
+			} `json:"prompts"`
+		}
+		if err := json.Unmarshal(args, &params); err != nil {
+			return errorResult("invalid arguments: " + err.Error())
+		}
+		if len(params.Prompts) == 0 {
+			return errorResult(`"prompts" must be a non-empty array`)
+		}
+
+		requests := make([]map[string]any, len(params.Prompts))
+		for i, p := range params.Prompts {
+			if p.Model == "" || p.Prompt == "" {
+				return errorResult(fmt.Sprintf("prompts[%d]: \"model\" and \"prompt\" are required", i))
+			}
+			maxTokens := p.MaxTokens
+			if maxTokens == 0 {
+				maxTokens = 512
+			}
+			requests[i] = map[string]any{
+				"model":      p.Model,
+				"messages":   []map[string]string{{"role": "user", "content": p.Prompt}},
+				"stream":     false,
+				"max_tokens": maxTokens,
+			}
+		}
+
+		body, _ := json.Marshal(map[string]any{"requests": requests})
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.RouterURL+"/v0/parallel-completions", bytes.NewReader(body))
+		if err != nil {
+			return errorResult(err.Error())
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := c.do(req)
+		if err != nil {
+			return errorResult(err.Error())
+		}
+
+		var parsed struct {
+			Results []struct {
+				Index    int    `json:"index"`
+				Status   string `json:"status"`
+				Response struct {
+					Choices []struct {
+						Message struct {
+							Content          string `json:"content"`
+							ReasoningContent string `json:"reasoning_content"`
+						} `json:"message"`
+					} `json:"choices"`
+				} `json:"response"`
+				Error *struct {
+					Type    string `json:"type"`
+					Message string `json:"message"`
+				} `json:"error"`
+			} `json:"results"`
+		}
+		if err := json.Unmarshal(resp, &parsed); err != nil {
+			return errorResult("decode response: " + err.Error())
+		}
+
+		var out strings.Builder
+		anyError := false
+		for _, r := range parsed.Results {
+			fmt.Fprintf(&out, "[%d] ", r.Index)
+			if r.Status != "ok" {
+				anyError = true
+				fmt.Fprintf(&out, "error (%s): %s\n", r.Error.Type, r.Error.Message)
+				continue
+			}
+			if len(r.Response.Choices) == 0 {
+				fmt.Fprintln(&out, "error: no choices in response")
+				anyError = true
+				continue
+			}
+			msg := r.Response.Choices[0].Message
+			text := msg.Content
+			if text == "" {
+				text = msg.ReasoningContent
+			}
+			fmt.Fprintf(&out, "%s\n", text)
+		}
+
+		result := textResult(out.String())
+		result.IsError = anyError && len(parsed.Results) == 1 // only surface as a tool error if the sole result failed
+		return result
 	}
 }
 

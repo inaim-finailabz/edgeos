@@ -17,7 +17,7 @@ func TestBuildTools_ReadOnlyByDefault(t *testing.T) {
 	for _, e := range tools {
 		names[e.def.Name] = true
 	}
-	for _, want := range []string{"list_nodes", "fleet_status", "ask_fleet"} {
+	for _, want := range []string{"list_nodes", "fleet_status", "ask_fleet", "ask_fleet_parallel"} {
 		if !names[want] {
 			t.Errorf("missing read-only tool %q", want)
 		}
@@ -127,6 +127,76 @@ func TestAskFleet_MissingArgs(t *testing.T) {
 	result := entry.handler(context.Background(), json.RawMessage(`{"model":"m"}`))
 	if !result.IsError {
 		t.Error("want an error when prompt is missing")
+	}
+}
+
+func TestAskFleetParallel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v0/parallel-completions" {
+			t.Errorf("path = %s, want /v0/parallel-completions", r.URL.Path)
+		}
+		var body struct {
+			Requests []map[string]any `json:"requests"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if len(body.Requests) != 2 {
+			t.Fatalf("got %d sub-requests, want 2", len(body.Requests))
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"results": []map[string]any{
+				{"index": 0, "status": "ok", "response": map[string]any{
+					"choices": []map[string]any{{"message": map[string]string{"content": "42"}}},
+				}},
+				{"index": 1, "status": "error", "error": map[string]string{"type": "no_node_available", "message": "nope"}},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := newFleetClient(srv.URL, "")
+	entry := findTool(t, buildTools(c), "ask_fleet_parallel")
+
+	args, _ := json.Marshal(map[string]any{
+		"prompts": []map[string]any{
+			{"model": "m1", "prompt": "6*7?"},
+			{"model": "m2", "prompt": "will fail"},
+		},
+	})
+	result := entry.handler(context.Background(), args)
+	// Mixed success/failure across multiple prompts isn't itself a tool
+	// error -- the caller inspects the per-index text to see what failed.
+	if result.IsError {
+		t.Fatalf("mixed results should not set IsError: %+v", result)
+	}
+	text := result.Content[0].Text
+	if !strings.Contains(text, "[0] 42") {
+		t.Errorf("text = %q, want it to contain [0] 42", text)
+	}
+	if !strings.Contains(text, "[1] error (no_node_available): nope") {
+		t.Errorf("text = %q, want it to contain the [1] error", text)
+	}
+}
+
+func TestAskFleetParallel_EmptyPrompts(t *testing.T) {
+	c := newFleetClient("http://example.invalid", "")
+	entry := findTool(t, buildTools(c), "ask_fleet_parallel")
+
+	result := entry.handler(context.Background(), json.RawMessage(`{"prompts":[]}`))
+	if !result.IsError {
+		t.Error("want an error when prompts is empty")
+	}
+}
+
+func TestAskFleetParallel_MissingFieldInEntry(t *testing.T) {
+	c := newFleetClient("http://example.invalid", "")
+	entry := findTool(t, buildTools(c), "ask_fleet_parallel")
+
+	args, _ := json.Marshal(map[string]any{
+		"prompts": []map[string]any{{"model": "m1"}}, // missing "prompt"
+	})
+	result := entry.handler(context.Background(), args)
+	if !result.IsError {
+		t.Error("want an error when an entry is missing \"prompt\"")
 	}
 }
 

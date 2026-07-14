@@ -21,6 +21,14 @@ paths):
 - **`ask_fleet(model, prompt, max_tokens?)`** — sends a prompt to a loaded
   model and returns its response. `model` must match a `list_nodes` id
   exactly — no fuzzy matching, same as everywhere else in EdgeOS.
+- **`ask_fleet_parallel(prompts)`** — fans `prompts` (a list of
+  `{model, prompt, max_tokens?}`, max 32) out to the fleet concurrently
+  instead of one at a time. A fan-out primitive: it scores and routes each
+  entry exactly like a separate `ask_fleet` call, and returns each result
+  labeled by index (`[0] ...`, `[1] error (...): ...`) so a partial failure
+  doesn't hide the results that succeeded. Deciding how to split a task
+  into these prompts and how to combine the answers back together is the
+  caller's job, not this tool's.
 
 Only registered if `-management-token` (or `$EDGEOS_MANAGEMENT_TOKEN`) is
 set — mirrors the "disabled unless a token is configured" default

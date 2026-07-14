@@ -71,6 +71,55 @@ paths:
           content:
             application/json: { schema: { $ref: "#/components/schemas/Error" } }
 
+  /v0/parallel-completions:
+    post:
+      tags: [inference]
+      summary: Fan out multiple independent chat completions concurrently
+      description: |
+        A fan-out primitive, not a prompt-engineering framework: each entry
+        in `requests` is scored and routed exactly like a standalone
+        `/v1/chat/completions` call, dispatched concurrently (max 32 per
+        call). Splitting a task into sub-prompts and combining results back
+        into one answer is the caller's job. Always non-streaming — each
+        `requests[i].stream` is forced to `false` server-side regardless of
+        what's sent, since this collects each sub-request's full response
+        as one JSON value rather than relaying N concurrent SSE streams.
+        One sub-request failing doesn't fail the others — check
+        `results[i].status` per entry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requests]
+              properties:
+                requests:
+                  type: array
+                  maxItems: 32
+                  items: { $ref: "#/components/schemas/ChatCompletionRequest" }
+      responses:
+        "200":
+          description: One result per request, in the same order, each independently ok or errored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        index: { type: integer }
+                        status: { type: string, enum: [ok, error] }
+                        response: { type: object, description: "present when status is ok; the winning engine's full chat completion response, unmodified" }
+                        error: { $ref: "#/components/schemas/ParallelError" }
+        "400":
+          description: Malformed body, empty requests array, or more than 32 requests
+          content:
+            application/json: { schema: { $ref: "#/components/schemas/Error" } }
+
   /v0/nodes:
     get:
       tags: [nodes]
@@ -207,6 +256,13 @@ components:
           properties:
             type: { type: string }
             message: { type: string }
+
+    ParallelError:
+      type: object
+      description: Same {type, message} shape as Error, but nested under one result rather than wrapping the whole response
+      properties:
+        type: { type: string }
+        message: { type: string }
 
     ChatCompletionRequest:
       type: object
