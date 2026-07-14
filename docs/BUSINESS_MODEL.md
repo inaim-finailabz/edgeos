@@ -1,5 +1,29 @@
 # Business model
 
+## Three tiers, not two: Community, Business, EdgeOS Cloud
+
+The original two-tier framing (free core vs. enterprise SaaS) leaves a real
+gap: SMBs with the exact profile this project targets — medical practices,
+law firms, accounting firms, or a systems-integration house building a
+product on top of EdgeOS for one of those clients — usually want their own
+infrastructure (compliance, data residency) but don't have in-house
+engineering to install and run it themselves. That's neither "download it
+and DIY" (Community) nor "become a SaaS tenant" (EdgeOS Cloud) — it's
+**professional services on top of the same free software**:
+
+- **Business** (contact us / custom pricing): on-premise implementation
+  (installing and configuring agents on the customer's own hardware,
+  integrating with their existing systems) plus an ongoing support
+  contract (troubleshooting, updates, monitoring guidance). Still fully
+  self-hosted, on the customer's own infrastructure — no multi-tenant
+  cloud component, no new software capability at all. This tier sells
+  *services*, not features; the product being installed is identical to
+  what Community users download themselves. It's the "pure services"
+  option from the original three alternatives below, now folded in
+  alongside the SaaS tier rather than instead of it.
+
+This sits between the other two:
+
 ## Decision: hybrid — OSS-led adoption, enterprise SaaS monetization
 
 - **agent, router, CLI, dashboard all stay Apache-2.0**, free, full-featured.
@@ -92,16 +116,23 @@ there's nothing to break because there's nothing here to break.
 
 ## Why hybrid over the alternatives
 
-This supersedes three narrower options that were on the table (open-core +
-paid features baked into the core, hosted-fallback-only, and pure
-services): those either created OSS/paid tension inside the same binary, or
-capped revenue to a single seam (the fallback path) rather than the
-broader enterprise ops surface (fleet, auth, support).
+Two of three narrower options that were on the table are rejected outright
+(open-core with paid features baked into the core creates OSS/paid tension
+inside the same binary; hosted-fallback-only caps revenue to a single seam
+rather than the broader enterprise ops surface). The third — pure services
+— isn't rejected, it's **folded in as the Business tier above**: services
+revenue and SaaS revenue aren't mutually exclusive, they target different
+buyers (an SMB that wants someone else to run the install vs. a team that
+wants a hosted multi-tenant product), so both stay on the table
+simultaneously rather than picking one.
 
 ## Sequencing
 
 1. v0 ships fully open, no paid tier yet — the goal right now is developer
    adoption and real usage data, not revenue.
-2. The enterprise SaaS tier gets scoped once there's inbound demand from
+2. **Business (services) can start taking inbound whenever someone asks** —
+   it needs no new software, just people-time, so unlike the SaaS tier it
+   isn't gated on building anything first.
+3. The EdgeOS Cloud SaaS tier gets scoped once there's inbound demand from
    teams asking for the things above (fleet visibility, auth, support) —
    not speculatively ahead of that signal.

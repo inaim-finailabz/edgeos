@@ -242,13 +242,18 @@ section h2 { font-size: 1.6rem; margin: 0 0 1.5rem; }
   gap: 1.5rem;
   margin: 1.5rem 0 1rem;
 }
+.plan-grid-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) { .plan-grid-3 { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .plan-grid { grid-template-columns: 1fr; } }
 .plan-card {
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.5rem;
 }
+.plan-card-business { border-color: var(--text-secondary); }
 .plan-card-enterprise { border-color: var(--accent); }
 .plan-name {
   font-weight: 700;
@@ -256,6 +261,12 @@ section h2 { font-size: 1.6rem; margin: 0 0 1.5rem; }
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+.plan-for {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin: 0.35rem 0 1rem;
+  min-height: 3.2rem;
 }
 .plan-badge {
   font-size: 0.68rem;
@@ -274,6 +285,7 @@ section h2 { font-size: 1.6rem; margin: 0 0 1.5rem; }
   margin: 0 0 1.5rem;
   color: var(--text-secondary);
   font-size: 0.9rem;
+  flex: 1;
 }
 .plan-features li { padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
 .plan-features li:last-child { border-bottom: none; }
