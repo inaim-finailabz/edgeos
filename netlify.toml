@@ -27,6 +27,21 @@
   to = "/.netlify/functions/demo-data"
   status = 200
 
+[[redirects]]
+  from = "/.well-known/did.json"
+  to = "/.netlify/functions/bluesky-did"
+  status = 200
+
+[[redirects]]
+  from = "/xrpc/app.bsky.feed.describeFeedGenerator"
+  to = "/.netlify/functions/bluesky-describe-feed"
+  status = 200
+
+[[redirects]]
+  from = "/xrpc/app.bsky.feed.getFeedSkeleton"
+  to = "/.netlify/functions/bluesky-feed-skeleton"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

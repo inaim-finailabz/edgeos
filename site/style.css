@@ -33,6 +33,17 @@ body {
   line-height: 1.5;
 }
 
+.bluesky-install { max-width: 960px; padding-top: 7rem; padding-bottom: 7rem; text-align: center; }
+.install-mark { font-size: 4rem; filter: drop-shadow(0 0 22px rgba(55, 130, 246, .38)); }
+.eyebrow { color: #60a5fa; font-weight: 800; letter-spacing: .18em; }
+.bluesky-install h1 { font-size: clamp(3rem, 8vw, 6rem); margin: .25rem 0 1rem; }
+.install-lead { max-width: 720px; margin: 0 auto 2rem; font-size: 1.25rem; line-height: 1.65; color: var(--text-secondary); }
+.install-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 4rem; text-align: left; }
+.install-grid section { padding: 1.5rem; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.install-grid h2 { margin-top: 0; font-size: 1.1rem; }
+.install-grid p { color: var(--text-secondary); line-height: 1.55; }
+@media (max-width: 720px) { .install-grid { grid-template-columns: 1fr; } }
+
 .wrap { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; }
 
 a { color: var(--accent); }
@@ -51,7 +62,7 @@ a { color: var(--accent); }
   padding-top: 1rem;
   padding-bottom: 1rem;
 }
-.logo { font-weight: 700; font-size: 1.1rem; }
+.logo { font-weight: 700; font-size: 1.1rem; color: var(--text); text-decoration: none; }
 .site-header nav a {
   margin-left: 1.5rem;
   text-decoration: none;
