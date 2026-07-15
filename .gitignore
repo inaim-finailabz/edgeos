@@ -12,3 +12,6 @@ models/
 .DS_Store
 # node examples
 node_modules/
+
+# Local Netlify folder
+.netlify
